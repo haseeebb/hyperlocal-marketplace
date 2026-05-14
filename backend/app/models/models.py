@@ -1,7 +1,6 @@
 from sqlalchemy import Column, String, Boolean, Numeric, Text, DateTime, ForeignKey, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, declarative_base
-from pgvector.sqlalchemy import Vector
 import uuid, datetime, enum
 
 Base = declarative_base()
@@ -53,7 +52,6 @@ class Listing(Base):
     price = Column(Numeric(10, 2))
     currency = Column(String(10), default="USD")
     image_url = Column(Text)
-    image_embedding = Column(Vector(512))     # for image similarity search
     is_available = Column(Boolean, default=True)
     delivery_available = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

@@ -17,16 +17,20 @@ def setup_index():
     except Exception:
         pass
 
-    get_index().update_filterable_attributes([
-        "category", "city", "price", "is_available", "delivery_available"
-    ])
-    get_index().update_sortable_attributes([
-        "price", "created_at"
-    ])
-    get_index().update_searchable_attributes([
-        "title", "description", "store_name", "city"
-    ])
-    print("✅ Meilisearch setup completed")
+    try:
+        get_index().update_filterable_attributes([
+            "category", "city", "price", "is_available", "delivery_available"
+        ])
+        get_index().update_sortable_attributes([
+            "price", "created_at"
+        ])
+        get_index().update_searchable_attributes([
+            "title", "description", "store_name", "city"
+        ])
+        print("✅ Meilisearch setup completed")
+    except Exception as e:
+        print(f"⚠️ Meilisearch not available: {e}")
+        print("Search will use database fallback")
 
 
 def index_listing(listing, store):

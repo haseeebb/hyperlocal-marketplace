@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seller Dashboard — Find X</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .tab-nav{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:24px}
+    .tab-btn{background:none;border:none;border-bottom:2px solid transparent;
+      color:var(--text2);padding:10px 16px;font-size:13px;cursor:pointer;
+      font-family:'DM Sans',sans-serif;margin-bottom:-1px;transition:all 0.2s}
+    .tab-btn:hover{color:var(--text)}
+    .tab-btn.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+    .stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+      padding:18px;text-align:center}
+    .stat-val{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--cyan)}
+    .stat-lbl{font-size:12px;color:var(--text2);margin-top:4px}
+    .listing-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+      overflow:hidden;transition:all 0.2s}
+    .listing-card:hover{border-color:var(--border2)}
+    .listing-img-box{width:100%;height:140px;background:var(--bg3);
+      display:flex;align-items:center;justify-content:center;font-size:40px;
+      overflow:hidden;position:relative}
+    .listing-img-box img{width:100%;height:100%;object-fit:cover}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);
+      z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+    .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;
+      width:100%;max-width:500px;max-height:90vh;overflow-y:auto;padding:28px}
+    .img-upload-zone{border:2px dashed var(--border2);border-radius:12px;
+      padding:24px;text-align:center;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden}
+    .img-upload-zone:hover{border-color:var(--cyan);background:var(--cyan3)}
+    .img-upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+    .toggle-sw{position:relative;width:44px;height:24px;flex-shrink:0;display:inline-block}
+    .toggle-sw input{opacity:0;width:0;height:0}
+    .toggle-sl{position:absolute;inset:0;background:var(--bg4);border-radius:24px;cursor:pointer;transition:.3s}
+    .toggle-sl:before{content:'';position:absolute;width:18px;height:18px;
+      background:white;border-radius:50%;left:3px;top:3px;transition:.3s}
+    input:checked+.toggle-sl{background:var(--cyan)}
+    input:checked+.toggle-sl:before{transform:translateX(20px)}
+    .wa-cmd{background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+      padding:10px 14px;font-size:13px;font-family:monospace;color:var(--cyan);
+      margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+    .copy-btn{background:none;border:none;color:var(--text3);cursor:pointer;
+      font-size:12px;font-family:'DM Sans',sans-serif;transition:color 0.2s}
+    .copy-btn:hover{color:var(--cyan)}
+    .s-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;
+      padding:3px 10px;border-radius:20px;font-weight:500}
+    .s-verified{background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.25);color:var(--green)}
+    .s-pending{background:rgba(255,184,0,0.1);border:1px solid rgba(255,184,0,0.25);color:var(--amber)}
+  </style>
+</head>
+<body>
+<div id="nav-ph"></div>
+
+<div style="max-width:900px;margin:0 auto;padding:32px 24px">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+    <div>
+      <h2 style="font-size:24px;font-weight:800;margin-bottom:4px">Seller Dashboard</h2>
+      <p style="color:var(--text2);font-size:14px" id="welcomeMsg">Loading...</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div id="storeBadge"></div>
+      <button class="btn btn-cyan" style="font-size:13px;padding:8px 18px" onclick="openAdd()">
+        + Add Product
+      </button>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:28px">
+    <div class="stat-card"><div class="stat-val" id="s1">—</div><div class="stat-lbl">Products</div></div>
+    <div class="stat-card"><div class="stat-val" id="s2">—</div><div class="stat-lbl">Store Status</div></div>
+    <div class="stat-card"><div class="stat-val" id="s3">—</div><div class="stat-lbl">Delivery</div></div>
+    <div class="stat-card"><div class="stat-val" id="s4">—</div><div class="stat-lbl">Area</div></div>
+  </div>
+
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="showTab('products')" id="tab-products">📦 My Products</button>
+    <button class="tab-btn" onclick="showTab('store')"    id="tab-store">🏪 Store Info</button>
+    <button class="tab-btn" onclick="showTab('bot')"      id="tab-bot">💬 WhatsApp Bot</button>
+  </div>
+
+  <div id="panel-products">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:16px;font-weight:700">Your Products</h3>
+      <button class="btn btn-outline" style="font-size:12px;padding:6px 14px" onclick="loadProducts()">↻ Refresh</button>
+    </div>
+    <div id="productsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px"></div>
+  </div>
+
+  <div id="panel-store" style="display:none">
+    <div id="storeInfo"></div>
+  </div>
+
+  <div id="panel-bot" style="display:none">
+    <div style="background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.2);
+      border-radius:14px;padding:20px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <span style="font-size:28px">💬</span>
+        <div>
+          <div style="font-weight:700;font-size:15px;margin-bottom:3px">Manage via WhatsApp</div>
+          <div style="font-size:13px;color:var(--text2)">Send commands to <strong style="color:var(--green)">+1 555 637 6601</strong></div>
+        </div>
+      </div>
+      <a href="https://wa.me/15556376601?text=menu" target="_blank"
+        class="btn btn-green btn-full" style="font-size:14px;padding:12px">
+        💬 Open WhatsApp Bot
+      </a>
+    </div>
+    <div style="margin-bottom:8px;font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Commands</div>
+    <div class="wa-cmd">add product    <span class="copy-btn" onclick="cp('add product')">copy</span></div>
+    <div class="wa-cmd">my products    <span class="copy-btn" onclick="cp('my products')">copy</span></div>
+    <div class="wa-cmd">update price   <span class="copy-btn" onclick="cp('update price')">copy</span></div>
+    <div class="wa-cmd">delete product <span class="copy-btn" onclick="cp('delete product')">copy</span></div>
+    <div class="wa-cmd">delivery on    <span class="copy-btn" onclick="cp('delivery on')">copy</span></div>
+    <div class="wa-cmd">delivery off   <span class="copy-btn" onclick="cp('delivery off')">copy</span></div>
+    <div class="wa-cmd">pause store    <span class="copy-btn" onclick="cp('pause store')">copy</span></div>
+    <div class="wa-cmd">resume store   <span class="copy-btn" onclick="cp('resume store')">copy</span></div>
+  </div>
+</div>
+
+<!-- ══ ADD / EDIT MODAL ══ -->
+<div class="modal-overlay" id="modal" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <h3 style="font-size:18px;font-weight:700" id="modalH">Add Product</h3>
+      <button onclick="closeModal()" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer">✕</button>
+    </div>
+
+    <div id="modalAlert" class="alert alert-error"></div>
+
+    <div class="form-group">
+      <label class="form-label">Product Image</label>
+      <div class="img-upload-zone" id="uploadZone">
+        <input type="file" id="imgInput" accept="image/*" onchange="onImgSelect(this)">
+        <div id="uploadHint">
+          <div style="font-size:36px;margin-bottom:8px">📷</div>
+          <div style="font-size:13px;color:var(--text2)">Click to upload image</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">JPG or PNG, max 5MB</div>
+        </div>
+      </div>
+      <input type="hidden" id="mImgUrl">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Product Name *</label>
+      <input type="text" id="mName" class="form-input" placeholder="e.g. Nike Air Max">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Price (PKR) *</label>
+      <input type="number" id="mPrice" class="form-input" placeholder="e.g. 4500" min="0">
+      <input type="hidden" id="mCurrency" value="PKR">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea id="mDesc" class="form-input" rows="3" style="resize:none" placeholder="Describe your product..."></textarea>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;
+      background:var(--bg3);border-radius:10px;padding:12px 14px;margin-bottom:20px">
+      <span style="font-size:14px;color:var(--text2)">🚚 Delivery Available</span>
+      <label class="toggle-sw">
+        <input type="checkbox" id="mDelivery">
+        <span class="toggle-sl"></span>
+      </label>
+    </div>
+
+    <input type="hidden" id="mId">
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-outline btn-full" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-cyan btn-full" id="mSaveBtn"
+        style="font-family:'Syne',sans-serif;font-weight:700"
+        onclick="saveProduct()">Save Product</button>
+    </div>
+  </div>
+</div>
+
+<div id="footer-ph"></div>
+<script src="js/api.js"></script>
+<script>
+  document.getElementById('nav-ph').innerHTML = navHTML();
+  document.getElementById('footer-ph').innerHTML = footerHTML();
+
+  if(!isLoggedIn()){
+    window.location.href = 'login.html';
+  }
+
+  // ── Cloudinary config (update with your credentials) ──
+  const CLD_URL    = 'https://api.cloudinary.com/v1_1/dotybyiah/image/upload';
+  const CLD_PRESET = 'findx_uploads';
+
+  let store    = null;
+  let editId   = null;
+  let newImgFile = null;
+
+  // ── Load dashboard ────────────────────────────────
+  async function init(){
+    try {
+      const res = await fetch('http://localhost:8000/api/stores/my',
+        { headers:{ 'Authorization':'Bearer '+getToken() } });
+      if(!res.ok) throw new Error();
+      store = await res.json();
+      renderHeader();
+      loadProducts();
+      renderStoreInfo();
+    } catch(e){ noStore(); }
+  }
+
+  function renderHeader(){
+    document.getElementById('welcomeMsg').textContent = store.name+' · '+(store.city||'Lahore');
+    document.getElementById('storeBadge').innerHTML   = store.is_verified
+      ? '<span class="s-badge s-verified">✓ Verified</span>'
+      : '<span class="s-badge s-pending">⏳ Pending</span>';
+    document.getElementById('s2').textContent = store.is_verified ? '✓' : '⏳';
+    document.getElementById('s3').textContent = store.delivery_available ? 'ON' : 'OFF';
+    document.getElementById('s4').textContent = store.city || 'Lahore';
+  }
+
+  // ── Products ──────────────────────────────────────
+  async function loadProducts(){
+    if(!store){ noStore(); return; }
+    const grid = document.getElementById('productsGrid');
+    grid.innerHTML = '<div style="color:var(--text2);text-align:center;padding:40px;grid-column:1/-1">Loading...</div>';
+    try {
+      const items = await apiGet('/api/listings/store/'+store.id);
+      const list  = Array.isArray(items) ? items : [];
+      document.getElementById('s1').textContent = list.length;
+      if(!list.length){
+        grid.innerHTML = `<div style="text-align:center;padding:48px;grid-column:1/-1">
+          <div style="font-size:48px;margin-bottom:12px">📦</div>
+          <p style="color:var(--text2);margin-bottom:16px">No products yet</p>
+          <button class="btn btn-cyan" onclick="openAdd()">+ Add First Product</button>
+        </div>`;
+        return;
+      }
+      grid.innerHTML = list.map(p => `
+        <div class="listing-card">
+          <div class="listing-img-box">
+            ${p.image_url ? `<img src="${p.image_url}" alt="${p.title}">` : '<span>📦</span>'}
+            ${p.delivery_available ? `<div style="position:absolute;top:8px;right:8px;
+              background:rgba(0,229,255,0.9);color:#000;font-size:10px;padding:2px 7px;
+              border-radius:6px;font-weight:600">🚚 Delivery</div>` : ''}
+          </div>
+          <div style="padding:12px">
+            <div style="font-weight:600;font-size:14px;margin-bottom:3px;
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${p.title}">${p.title}</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:6px;
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              ${p.description || 'No description'}</div>
+            <div style="font-family:'Syne',sans-serif;font-weight:700;color:var(--cyan);margin-bottom:10px">
+              ${p.currency||'PKR'} ${Number(p.price).toLocaleString()}</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-outline" style="flex:1;font-size:11px;padding:6px"
+                onclick='openEdit(${JSON.stringify(p).replace(/"/g,"&quot;")})'>✏️ Edit</button>
+              <button class="btn btn-red" style="flex:1;font-size:11px;padding:6px"
+                onclick="delProduct('${p.id}','${p.title.replace(/'/g,"\\'")}')">🗑️ Delete</button>
+            </div>
+          </div>
+        </div>`).join('');
+    } catch(e){
+      grid.innerHTML = '<div style="color:var(--red);text-align:center;padding:40px;grid-column:1/-1">Error loading products.</div>';
+    }
+  }
+
+  // ── Modal helpers ─────────────────────────────────
+  function resetModal(){
+    editId = null; newImgFile = null;
+    document.getElementById('mId').value       = '';
+    document.getElementById('mName').value     = '';
+    document.getElementById('mPrice').value    = '';
+    document.getElementById('mDesc').value     = '';
+    document.getElementById('mImgUrl').value   = '';
+    document.getElementById('mDelivery').checked = false;
+    document.getElementById('mCurrency').value = 'PKR';
+    document.getElementById('uploadHint').innerHTML = `
+      <div style="font-size:36px;margin-bottom:8px">📷</div>
+      <div style="font-size:13px;color:var(--text2)">Click to upload image</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">JPG or PNG, max 5MB</div>`;
+    hideAlert('modalAlert');
+  }
+
+  function openAdd(){
+    if(!store || !store.is_verified){
+      showToast('Your store must be verified first.'); return;
+    }
+    resetModal();
+    document.getElementById('modalH').textContent    = 'Add New Product';
+    document.getElementById('mSaveBtn').textContent  = 'Add Product';
+    document.getElementById('modal').style.display   = 'flex';
+  }
+
+  function openEdit(p){
+    resetModal();
+    editId = p.id;
+    document.getElementById('mId').value        = p.id;
+    document.getElementById('mName').value      = p.title;
+    document.getElementById('mPrice').value     = p.price;
+    document.getElementById('mDesc').value      = p.description || '';
+    document.getElementById('mImgUrl').value    = p.image_url   || '';
+    document.getElementById('mDelivery').checked= p.delivery_available;
+    document.getElementById('mCurrency').value  = p.currency || 'PKR';
+    document.getElementById('modalH').textContent   = 'Edit Product';
+    document.getElementById('mSaveBtn').textContent = 'Save Changes';
+    if(p.image_url){
+      document.getElementById('uploadHint').innerHTML =
+        `<img src="${p.image_url}" style="width:100%;height:160px;object-fit:cover;border-radius:8px;margin-bottom:8px">
+         <div style="font-size:12px;color:var(--text2)">Click to change image</div>`;
+    }
+    document.getElementById('modal').style.display = 'flex';
+  }
+
+  function closeModal(){
+    document.getElementById('modal').style.display = 'none';
+  }
+
+  function onImgSelect(input){
+    if(!input.files || !input.files[0]) return;
+    newImgFile = input.files[0];
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('uploadHint').innerHTML =
+        `<img src="${e.target.result}" style="width:100%;height:160px;object-fit:cover;border-radius:8px;margin-bottom:8px">
+         <div style="font-size:12px;color:var(--cyan)">✓ Image ready to upload</div>`;
+    };
+    reader.readAsDataURL(newImgFile);
+  }
+
+  async function uploadToCloudinary(file){
+    if(CLD_URL.includes('YOUR_CLOUD_NAME')) return null;
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('upload_preset', CLD_PRESET);
+    const res  = await fetch(CLD_URL, { method:'POST', body:fd });
+    const data = await res.json();
+    return data.secure_url || null;
+  }
+
+  async function saveProduct(){
+    hideAlert('modalAlert');
+    const name     = document.getElementById('mName').value.trim();
+    const price    = parseFloat(document.getElementById('mPrice').value);
+    const desc     = document.getElementById('mDesc').value.trim();
+    const delivery = document.getElementById('mDelivery').checked;
+    const currency = document.getElementById('mCurrency').value;
+    const btn      = document.getElementById('mSaveBtn');
+
+    if(!name)          { showAlert('modalAlert','Product name is required.'); return; }
+    if(!price||price<=0){ showAlert('modalAlert','Enter a valid price.');     return; }
+
+    btn.textContent = 'Saving...';
+    btn.disabled    = true;
+
+    // Upload new image if selected
+    let imgUrl = document.getElementById('mImgUrl').value || '';
+    if(newImgFile){
+      showToast('Uploading image...');
+      const uploaded = await uploadToCloudinary(newImgFile);
+      if(uploaded) imgUrl = uploaded;
+    }
+
+    try {
+      if(editId){
+        await apiPut('/api/listings/'+editId, {
+          title: name, price, description: desc,
+          delivery_available: delivery,
+          image_url: imgUrl, currency
+        });
+        showToast('✓ Product updated successfully!');
+      } else {
+        await apiPost('/api/listings/', {
+          store_id: store.id,
+          title: name, price, description: desc,
+          delivery_available: delivery,
+          image_url: imgUrl, currency
+        });
+        showToast('✓ Product added successfully!');
+      }
+      closeModal();
+      loadProducts();
+    } catch(e){
+      showAlert('modalAlert','Error saving. Please try again.');
+    }
+    btn.textContent = editId ? 'Save Changes' : 'Add Product';
+    btn.disabled    = false;
+  }
+
+  async function delProduct(id, title){
+    if(!confirm('Delete "'+title+'"? This cannot be undone.')) return;
+    try {
+      await apiDelete('/api/listings/'+id);
+      showToast('✓ "'+title+'" deleted');
+      loadProducts();
+    } catch(e){ showToast('Error deleting product.'); }
+  }
+
+  // ── Store info tab ────────────────────────────────
+  function renderStoreInfo(){
+    if(!store) return;
+    document.getElementById('storeInfo').innerHTML = `
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div><div class="form-label">Store Name</div><div style="font-weight:600;margin-top:4px">${store.name}</div></div>
+          <div><div class="form-label">Category</div><div style="font-weight:600;margin-top:4px">${store.category||'—'}</div></div>
+          <div><div class="form-label">Area</div><div style="font-weight:600;margin-top:4px">${store.city||'Lahore'}</div></div>
+          <div><div class="form-label">WhatsApp</div><div style="font-weight:600;margin-top:4px">${store.whatsapp_number||'—'}</div></div>
+          <div><div class="form-label">Coordinates</div>
+            <div style="font-size:13px;color:var(--text2);margin-top:4px">
+              ${store.lat ? store.lat.toFixed(4)+', '+store.lng.toFixed(4) : 'Not set'}</div></div>
+          <div><div class="form-label">Status</div>
+            <div style="margin-top:4px">
+              ${store.is_verified
+                ? '<span class="s-badge s-verified">✓ Verified</span>'
+                : '<span class="s-badge s-pending">⏳ Pending</span>'}</div></div>
+        </div>
+        ${store.description ? `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <div class="form-label">Description</div>
+          <div style="font-size:14px;color:var(--text2);margin-top:4px;line-height:1.6">${store.description}</div>
+          </div>` : ''}
+      </div>
+      ${!store.is_verified ? `<div style="background:rgba(255,184,0,0.08);border:1px solid rgba(255,184,0,0.25);
+        border-radius:12px;padding:14px;font-size:13px;color:var(--amber)">
+        ⏳ Your store is pending admin approval. You will be notified on WhatsApp once approved.</div>` : ''}`;
+  }
+
+  function noStore(){
+    document.getElementById('welcomeMsg').textContent = 'No store found';
+    document.getElementById('storeBadge').innerHTML   = '<span class="s-badge s-pending">No Store</span>';
+    ['s1','s2','s3','s4'].forEach(id => document.getElementById(id).textContent='—');
+    document.getElementById('productsGrid').innerHTML = `
+      <div style="text-align:center;padding:48px;grid-column:1/-1">
+        <div style="font-size:48px;margin-bottom:12px">🏪</div>
+        <p style="color:var(--text2);margin-bottom:16px">No store registered</p>
+        <a href="register.html" class="btn btn-cyan" style="font-family:'Syne',sans-serif;font-weight:700">
+          Register Store →</a>
+      </div>`;
+  }
+
+  function showTab(name){
+    ['products','store','bot'].forEach(t => {
+      document.getElementById('panel-'+t).style.display = t===name?'block':'none';
+      document.getElementById('tab-'+t).classList.toggle('active', t===name);
+    });
+  }
+
+  function cp(cmd){
+    navigator.clipboard.writeText(cmd).then(()=>showToast('Copied: '+cmd));
+  }
+
+  init();
+</script>
+</body>
+</html>

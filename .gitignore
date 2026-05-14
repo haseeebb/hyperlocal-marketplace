@@ -1,0 +1,30 @@
+# Python virtual environments
+venv/
+.venv/
+env/
+backend/venv/
+backend/.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environment variables - NEVER push these
+backend/.env
+.env
+
+# Node modules
+node_modules/
+
+# VS Code
+.vscode/
+
+# Alembic (optional)
+# alembic/versions/
+
+# OS files
+.DS_Store
+Thumbs.db

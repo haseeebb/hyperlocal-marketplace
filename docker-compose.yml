@@ -1,0 +1,26 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: ankane/pgvector        # PostgreSQL + pgvector for image search
+    environment:
+      POSTGRES_DB: marketplace
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.7
+    ports:
+      - "7700:7700"
+    environment:
+      MEILI_MASTER_KEY: masterkey123
+    volumes:
+      - meilidata:/meili_data
+
+volumes:
+  pgdata:
+  meilidata:

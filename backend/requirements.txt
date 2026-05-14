@@ -1,0 +1,10 @@
+Callback URL:  https://imagines-despair-smuggling.ngrok-free.dev/webhook/whatsapp
+Verify Token:  findx_verify_2024
+
+
+\Callback URL:  https://imagines-despair-smuggling.ngrok-free.dev/webhook/whatsapp
+Verify Token:  findx_verify_2024
+
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=1pQveYh44mwkmPyPI84kX_E2-yw

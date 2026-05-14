@@ -1,0 +1,167 @@
+const API = 'http://localhost:8000';
+
+// ─── CART ───────────────────────────────────────────
+let cart = JSON.parse(localStorage.getItem('findx_cart') || '[]');
+
+function saveCart(){
+  localStorage.setItem('findx_cart', JSON.stringify(cart));
+  updateCartCount();
+}
+function updateCartCount(){
+  const el = document.getElementById('cartCount');
+  if(el) el.textContent = cart.length;
+}
+function addToCart(product){
+  cart.push(product);
+  saveCart();
+  showToast('✓ ' + product.title + ' added to cart');
+}
+function removeFromCart(index){
+  cart.splice(index,1);
+  saveCart();
+}
+
+// ─── TOAST ──────────────────────────────────────────
+function showToast(msg){
+  const t = document.getElementById('toast');
+  if(!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── AUTH ───────────────────────────────────────────
+function getToken(){ return localStorage.getItem('findx_token'); }
+function setToken(t){ localStorage.setItem('findx_token', t); }
+function clearToken(){ localStorage.removeItem('findx_token'); localStorage.removeItem('findx_user'); }
+function getUser(){ return JSON.parse(localStorage.getItem('findx_user') || 'null'); }
+function setUser(u){ localStorage.setItem('findx_user', JSON.stringify(u)); }
+function isLoggedIn(){ return !!getToken(); }
+function isAdmin(){ const u = getUser(); return u && (u.role === 'admin' || u.role === 'UserRole.admin'); }
+
+function logout(){
+  clearToken();
+  window.location.href = 'index.html';
+}
+
+// ─── HTTP HELPERS ────────────────────────────────────
+async function apiGet(path){
+  const r = await fetch(API + path, { headers:{'Authorization':'Bearer '+getToken()} });
+  return r.json();
+}
+async function apiPost(path, data){
+  const r = await fetch(API + path, {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},
+    body: JSON.stringify(data)
+  });
+  return r.json();
+}
+async function apiPut(path, data={}){
+  const r = await fetch(API + path, {
+    method:'PUT',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},
+    body: JSON.stringify(data)
+  });
+  return r.json();
+}
+async function apiDelete(path){
+  const r = await fetch(API + path, {
+    method:'DELETE',
+    headers:{'Authorization':'Bearer '+getToken()}
+  });
+  return r.json();
+}
+
+// ─── SEARCH ──────────────────────────────────────────
+async function searchListings(q='', category='', maxPrice='', city=''){
+  let url = `${API}/api/search/?q=${encodeURIComponent(q)}`;
+  if(category) url += `&category=${category}`;
+  if(maxPrice)  url += `&max_price=${maxPrice}`;
+  if(city)      url += `&city=${encodeURIComponent(city)}`;
+  const r = await fetch(url);
+  return r.json();
+}
+
+// ─── REUSABLE HTML COMPONENTS ────────────────────────
+function navHTML(){
+  const user = getUser();
+  const isBuyer = !user || user.role === 'buyer';
+  return `
+  <nav>
+    <a href="index.html" class="logo">Find<span>X</span></a>
+    <div class="nav-links">
+      ${isBuyer ? `
+        <a href="cart.html" class="cart-icon">
+          🛒<div class="cart-count" id="cartCount">${cart.length}</div>
+        </a>` : ''}
+      ${user
+        ? `<span style="font-size:13px;color:var(--text2);margin-right:4px">${user.name}</span>
+           ${(user.role === 'admin' || user.role === 'UserRole.admin')   ? `<a href="admin.html"  class="nav-btn">Admin Panel</a>`  : ''}
+           ${(user.role === 'seller' || user.role === 'UserRole.seller') ? `<a href="seller.html" class="nav-btn">My Store</a>`     : ''}
+           <button class="nav-btn" onclick="logout()">Logout</button>`
+        : `<a href="login.html" class="nav-btn">Login</a>
+           <a href="register.html" class="nav-btn solid">Sign up</a>`
+      }
+    </div>
+  </nav>`;
+}
+
+function footerHTML(){
+  return `
+  <footer>
+    Find X &mdash; Lahore Hyperlocal Marketplace &nbsp;&middot;&nbsp;
+    Final Year Project &nbsp;&middot;&nbsp;
+    Built with FastAPI + PostgreSQL
+  </footer>
+  <div class="toast" id="toast"></div>`;
+}
+
+function productCardHTML(item){
+  const safeItem = JSON.stringify(item).replace(/"/g,'&quot;');
+  const user = getUser();
+  const isBuyer = !user || user.role === 'buyer';
+  return `
+  <div class="product-card">
+    ${item.delivery_available ? '<div class="product-badge badge-delivery">🚚 Delivery</div>' : ''}
+    <div class="product-img">
+      ${item.image_url
+        ? `<img src="${item.image_url}" alt="${item.title}" loading="lazy">`
+        : '<span>📦</span>'}
+    </div>
+    <div class="product-info">
+      <div class="product-store">
+        ${item.store_name || 'Store'} <span class="verified">✓</span> &middot; ${item.city || 'Lahore'}
+      </div>
+      <div class="product-name">${item.title}</div>
+      <div class="product-bottom">
+        <div class="product-price">PKR ${Number(item.price).toLocaleString()}</div>
+        <div class="product-rating">★★★★★</div>
+      </div>
+      ${isBuyer ? `
+        <button class="btn btn-outline btn-full" style="margin-top:8px"
+          onclick='addToCart(${safeItem})'>+ Add to Cart</button>` : ''}
+      <a href="https://wa.me/${item.whatsapp_number}?text=Hi! I am interested in ${encodeURIComponent(item.title)}"
+        target="_blank"
+        class="btn btn-green btn-full" style="margin-top:6px">
+        💬 Contact on WhatsApp
+      </a>
+    </div>
+  </div>`;
+}
+
+function showAlert(id, msg, type='error'){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.textContent = msg;
+  el.className = `alert alert-${type} show`;
+}
+
+function hideAlert(id){
+  const el = document.getElementById(id);
+  if(el) el.className = 'alert';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  updateCartCount();
+});

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Find X</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="nav-ph"></div>
+
+<div style="max-width:1000px;margin:0 auto;padding:32px 24px">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px">
+    <h2 style="font-size:24px;font-weight:800">Admin Dashboard</h2>
+    <span style="font-size:13px;color:var(--text2)" id="adminName"></span>
+  </div>
+
+  <!-- Stats -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:32px">
+    <div class="card" style="text-align:center">
+      <div style="font-size:28px;font-weight:800;color:var(--cyan);font-family:'Syne',sans-serif" id="s1">—</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">Total Stores</div>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:28px;font-weight:800;color:var(--green);font-family:'Syne',sans-serif" id="s2">—</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">Verified</div>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:28px;font-weight:800;color:var(--amber);font-family:'Syne',sans-serif" id="s3">—</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">Pending</div>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:28px;font-weight:800;color:var(--cyan);font-family:'Syne',sans-serif" id="s4">—</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">Listings</div>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:28px;font-weight:800;color:var(--green);font-family:'Syne',sans-serif" id="s5">—</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">New This Week</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div style="display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0">
+    <button class="tab-btn active" onclick="showTab('pending')"  id="tab-pending">⏳ Pending Stores</button>
+    <button class="tab-btn"        onclick="showTab('stores')"   id="tab-stores">🏪 All Stores</button>
+    <button class="tab-btn"        onclick="showTab('listings')" id="tab-listings">📦 Listings</button>
+  </div>
+
+  <!-- Pending stores -->
+  <div id="panel-pending">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:16px;font-weight:700">Pending Store Approvals</h3>
+      <button class="btn btn-outline" style="font-size:12px;padding:6px 14px" onclick="loadPending()">↻ Refresh</button>
+    </div>
+    <div id="pendingList">
+      <div style="color:var(--text2);text-align:center;padding:40px">Loading...</div>
+    </div>
+  </div>
+
+  <!-- All stores -->
+  <div id="panel-stores" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:16px;font-weight:700">All Stores</h3>
+      <button class="btn btn-outline" style="font-size:12px;padding:6px 14px" onclick="loadAllStores()">↻ Refresh</button>
+    </div>
+    <div id="allStoresList">
+      <div style="color:var(--text2);text-align:center;padding:40px">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Listings -->
+  <div id="panel-listings" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:16px;font-weight:700">All Listings</h3>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" style="font-size:12px;padding:6px 14px" onclick="reindex()">⚡ Reindex Search</button>
+        <button class="btn btn-outline" style="font-size:12px;padding:6px 14px" onclick="loadListings()">↻ Refresh</button>
+      </div>
+    </div>
+    <div id="listingsList">
+      <div style="color:var(--text2);text-align:center;padding:40px">Loading...</div>
+    </div>
+  </div>
+
+</div>
+
+<div id="footer-ph"></div>
+
+<style>
+.tab-btn{background:transparent;border:none;color:var(--text2);padding:10px 16px;
+  font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;border-bottom:2px solid transparent;
+  margin-bottom:-1px;transition:all 0.2s}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.action-row{display:flex;gap:6px;flex-wrap:wrap}
+</style>
+
+<script src="js/api.js"></script>
+<script>
+  document.getElementById('nav-ph').innerHTML = navHTML();
+  document.getElementById('footer-ph').innerHTML = footerHTML();
+
+  if(!isLoggedIn()){ window.location.href = 'login.html'; }
+
+  const user = getUser();
+  if(user) document.getElementById('adminName').textContent = 'Logged in as ' + user.name;
+
+  // ── Stats ─────────────────────────────────────────
+  async function loadStats(){
+    try {
+      const d = await apiGet('/api/admin/stats');
+      document.getElementById('s1').textContent = d.total_stores         || 0;
+      document.getElementById('s2').textContent = d.verified_stores      || 0;
+      document.getElementById('s3').textContent = d.pending_stores       || 0;
+      document.getElementById('s4').textContent = d.total_listings       || 0;
+      document.getElementById('s5').textContent = d.new_stores_this_week || 0;
+    } catch(e){}
+  }
+
+  // ── Pending stores ────────────────────────────────
+  async function loadPending(){
+    try {
+      const d    = await apiGet('/api/admin/stores/pending');
+      const list = d.stores || [];
+      if(!list.length){
+        document.getElementById('pendingList').innerHTML =
+          '<div style="color:var(--green);text-align:center;padding:40px">✓ No pending stores — all caught up!</div>';
+        return;
+      }
+      document.getElementById('pendingList').innerHTML = `
+        <div style="overflow-x:auto">
+        <table class="table">
+          <thead><tr>
+            <th>Store Name</th><th>Category</th><th>City</th><th>WhatsApp</th><th>Registered</th><th>Actions</th>
+          </tr></thead>
+          <tbody>
+            ${list.map(s => `
+              <tr>
+                <td style="font-weight:500">${s.name}</td>
+                <td><span class="badge badge-info">${s.category}</span></td>
+                <td>${s.city || '—'}</td>
+                <td style="font-size:12px">${s.whatsapp_number}</td>
+                <td style="font-size:12px;color:var(--text3)">${s.created_at.substring(0,10)}</td>
+                <td>
+                  <div class="action-row">
+                    <button class="btn" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.25);color:var(--green);font-size:12px;padding:5px 12px"
+                      onclick="approveStore('${s.id}','${s.name}')">✓ Approve</button>
+                    <button class="btn btn-red" style="font-size:12px;padding:5px 12px"
+                      onclick="rejectStore('${s.id}','${s.name}')">✗ Reject</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        </div>`;
+    } catch(e){
+      document.getElementById('pendingList').innerHTML =
+        '<div style="color:var(--red);text-align:center;padding:40px">Error loading data.</div>';
+    }
+  }
+
+  // ── All stores ────────────────────────────────────
+  async function loadAllStores(){
+    try {
+      const d    = await apiGet('/api/admin/stores/all');
+      const list = d.stores || [];
+      if(!list.length){
+        document.getElementById('allStoresList').innerHTML =
+          '<div style="color:var(--text2);text-align:center;padding:40px">No stores found.</div>';
+        return;
+      }
+      document.getElementById('allStoresList').innerHTML = `
+        <div style="overflow-x:auto">
+        <table class="table">
+          <thead><tr>
+            <th>Store Name</th><th>Category</th><th>City</th><th>WhatsApp</th><th>Status</th><th>Registered</th><th>Action</th>
+          </tr></thead>
+          <tbody>
+            ${list.map(s => `
+              <tr>
+                <td style="font-weight:500">${s.name}</td>
+                <td><span class="badge badge-info">${s.category}</span></td>
+                <td>${s.city || '—'}</td>
+                <td style="font-size:12px">${s.whatsapp_number}</td>
+                <td>
+                  <span class="badge ${s.is_verified ? 'badge-success' : 'badge-warning'}">
+                    ${s.is_verified ? '✓ Verified' : '⏳ Pending'}
+                  </span>
+                </td>
+                <td style="font-size:12px;color:var(--text3)">${s.created_at.substring(0,10)}</td>
+                <td>
+                  <div class="action-row">
+                    ${!s.is_verified ? `
+                      <button class="btn" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.25);color:var(--green);font-size:12px;padding:5px 12px"
+                        onclick="approveStore('${s.id}','${s.name}')">✓ Approve</button>` : ''}
+                    <button class="btn btn-red" style="font-size:12px;padding:5px 12px"
+                      onclick="blockStore('${s.id}','${s.name}')">🚫 Block</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        </div>`;
+    } catch(e){
+      document.getElementById('allStoresList').innerHTML =
+        '<div style="color:var(--red);text-align:center;padding:40px">Error loading stores.</div>';
+    }
+  }
+
+  // ── All listings ──────────────────────────────────
+  async function loadListings(){
+    try {
+      const d    = await apiGet('/api/admin/listings/all');
+      const list = d.listings || [];
+      if(!list.length){
+        document.getElementById('listingsList').innerHTML =
+          '<div style="color:var(--text2);text-align:center;padding:40px">No listings found.</div>';
+        return;
+      }
+      document.getElementById('listingsList').innerHTML = `
+        <div style="overflow-x:auto">
+        <table class="table">
+          <thead><tr>
+            <th>Product</th><th>Store</th><th>City</th><th>Price</th><th>Added</th><th>Action</th>
+          </tr></thead>
+          <tbody>
+            ${list.map(l => `
+              <tr>
+                <td style="font-weight:500">${l.title}</td>
+                <td style="font-size:12px">${l.store_name}</td>
+                <td style="font-size:12px">${l.city || '—'}</td>
+                <td style="color:var(--cyan);font-family:'Syne',sans-serif;font-weight:700">
+                  PKR ${Number(l.price).toLocaleString()}
+                </td>
+                <td style="font-size:12px;color:var(--text3)">${l.created_at.substring(0,10)}</td>
+                <td>
+                  <button class="btn btn-red" style="font-size:12px;padding:5px 12px"
+                    onclick="removeListing('${l.id}','${l.title.replace(/'/g,"\\'")}')">
+                    🗑️ Remove
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        </div>`;
+    } catch(e){
+      document.getElementById('listingsList').innerHTML =
+        '<div style="color:var(--red);text-align:center;padding:40px">Error loading listings.</div>';
+    }
+  }
+
+  // ── Actions ───────────────────────────────────────
+  async function approveStore(id, name){
+    if(!confirm(`Approve store "${name}"?`)) return;
+    await apiPut(`/api/admin/stores/${id}/approve`);
+    showToast('✓ ' + name + ' approved!');
+    loadPending();
+    loadStats();
+  }
+
+  async function rejectStore(id, name){
+    if(!confirm(`Reject store "${name}"? This cannot be undone.`)) return;
+    await apiPut(`/api/admin/stores/${id}/reject`);
+    showToast('Store rejected.');
+    loadPending();
+    loadStats();
+  }
+
+  async function blockStore(id, name){
+    if(!confirm(`Block store "${name}"?\n\nThis will deactivate the store and hide it from buyers and search results.`)) return;
+    await apiPut(`/api/admin/stores/${id}/reject`);
+    showToast('🚫 ' + name + ' has been blocked.');
+    loadAllStores();
+    loadStats();
+  }
+
+  async function removeListing(id, title){
+    if(!confirm(`Remove listing "${title}"?`)) return;
+    await apiDelete(`/api/admin/listings/${id}`);
+    showToast('Listing removed.');
+    loadListings();
+    loadStats();
+  }
+
+  async function reindex(){
+    showToast('Reindexing...');
+    const d = await apiPost('/api/admin/reindex', {});
+    showToast('✓ Indexed ' + (d.indexed || 0) + ' listings');
+  }
+
+  // ── Tab switching ─────────────────────────────────
+  function showTab(name){
+    ['pending','stores','listings'].forEach(t => {
+      document.getElementById('panel-' + t).style.display = t === name ? 'block' : 'none';
+      document.getElementById('tab-'   + t).classList.toggle('active', t === name);
+    });
+    if(name === 'pending')  loadPending();
+    if(name === 'stores')   loadAllStores();
+    if(name === 'listings') loadListings();
+  }
+
+  // ── Init ──────────────────────────────────────────
+  loadStats();
+  loadPending();
+</script>
+</body>
+</html>

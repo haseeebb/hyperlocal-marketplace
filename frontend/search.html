@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Search — Find X</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .price-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+    .price-inputs input{background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+      padding:9px 12px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;
+      outline:none;transition:border 0.2s;width:100%}
+    .price-inputs input:focus{border-color:var(--border2)}
+    .price-inputs input::placeholder{color:var(--text3)}
+    .filter-panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px}
+    .filter-section-title{font-size:12px;color:var(--text3);font-weight:500;
+      text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px}
+    .geo-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;
+      color:var(--text3);margin-top:6px}
+    .geo-dot-sm{width:6px;height:6px;border-radius:50%;background:var(--text3)}
+    .geo-dot-sm.on{background:var(--green)}
+    .geo-dot-sm.loading{background:var(--amber);animation:gp 1s infinite}
+    @keyframes gp{0%,100%{opacity:1}50%{opacity:0.3}}
+  </style>
+</head>
+<body>
+<div id="nav-ph"></div>
+
+<div style="max-width:1000px;margin:0 auto;padding:24px 24px 0">
+
+  <!-- Top bar -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <a href="index.html" style="color:var(--cyan);font-size:20px;flex-shrink:0">←</a>
+    <div class="search-box" style="flex:1">
+      <input type="text" id="searchInput" placeholder="Search products, services, restaurants..." />
+      <button class="search-btn" onclick="doSearch()">Search</button>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:16px;align-items:flex-start">
+
+    <!-- FILTER SIDEBAR -->
+    <div style="width:220px;flex-shrink:0">
+
+      <!-- Price filter -->
+      <div class="filter-panel">
+        <div class="filter-section-title">Price Range (PKR)</div>
+        <div class="price-inputs">
+          <input type="number" id="minPrice" placeholder="Min" min="0" oninput="applyFilters()">
+          <input type="number" id="maxPrice" placeholder="Max" min="0" oninput="applyFilters()">
+        </div>
+        <input type="range" id="priceSlider" min="0" max="100000" step="500" value="100000"
+          style="width:100%;accent-color:var(--cyan)"
+          oninput="document.getElementById('maxPrice').value=this.value;applyFilters()">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:4px">
+          <span>PKR 0</span><span>PKR 100,000</span>
+        </div>
+      </div>
+
+      <!-- Location filter -->
+      <div class="filter-panel">
+        <div class="filter-section-title">Location</div>
+        <input type="text" id="cityInput" class="form-input" placeholder="Area in Lahore..."
+          style="margin-bottom:10px" oninput="applyFilters()">
+        <button class="btn btn-outline btn-full" style="font-size:12px;padding:8px"
+          onclick="detectBuyerLocation()">
+          📍 Use My Location
+        </button>
+        <div class="geo-status">
+          <div class="geo-dot-sm" id="buyerGeoDot"></div>
+          <span id="buyerGeoText">Location not set</span>
+        </div>
+      </div>
+
+      <!-- Sort -->
+      <div class="filter-panel">
+        <div class="filter-section-title">Sort By</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label class="sort-opt active" id="sort-nearest" onclick="setSort('nearest',this)">
+            <input type="radio" name="sort" checked style="accent-color:var(--cyan)"> 📍 Nearest First
+          </label>
+          <label class="sort-opt" id="sort-price-low" onclick="setSort('price-low',this)">
+            <input type="radio" name="sort" style="accent-color:var(--cyan)"> Price: Low to High
+          </label>
+          <label class="sort-opt" id="sort-price-high" onclick="setSort('price-high',this)">
+            <input type="radio" name="sort" style="accent-color:var(--cyan)"> Price: High to Low
+          </label>
+          <label class="sort-opt" id="sort-latest" onclick="setSort('latest',this)">
+            <input type="radio" name="sort" style="accent-color:var(--cyan)"> 🆕 Latest
+          </label>
+          <label class="sort-opt" id="sort-delivery" onclick="setSort('delivery',this)">
+            <input type="radio" name="sort" style="accent-color:var(--cyan)"> 🚚 Delivery Only
+          </label>
+        </div>
+      </div>
+
+      <button class="btn btn-outline btn-full" style="font-size:12px" onclick="resetFilters()">
+        Reset All Filters
+      </button>
+    </div>
+
+    <!-- RESULTS -->
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h2 id="pageTitle" style="font-size:18px;font-weight:700">Search Results</h2>
+        <span id="resultCount" style="font-size:13px;color:var(--text2)"></span>
+      </div>
+      <div class="products-grid" id="resultsGrid">
+        <div style="color:var(--text2);text-align:center;padding:60px;grid-column:1/-1">
+          Searching...
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="height:40px"></div>
+<div id="footer-ph"></div>
+
+<style>
+.sort-opt{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);
+  cursor:pointer;padding:6px 8px;border-radius:8px;transition:all 0.2s}
+.sort-opt:hover{background:var(--bg3);color:var(--text)}
+.sort-opt.active{color:var(--cyan)}
+</style>
+
+<script src="js/api.js"></script>
+<script>
+  document.getElementById('nav-ph').innerHTML = navHTML();
+  document.getElementById('footer-ph').innerHTML = footerHTML();
+
+  const params  = new URLSearchParams(window.location.search);
+  let q         = params.get('q') || '';
+  let category  = params.get('category') || '';
+  let allResults= [];
+  let currentSort = 'nearest';
+  let buyerLat  = null;
+  let buyerLng  = null;
+
+  if(q) document.getElementById('searchInput').value = q;
+
+  const title = q ? `Results for "${q}"` : category ? `Browsing: ${category}` : 'All Products';
+  document.getElementById('pageTitle').textContent = title;
+  document.title = title + ' — Find X';
+
+  // Auto-detect buyer location silently
+  function detectBuyerLocation(){
+    if(!navigator.geolocation){ setBuyerGeo(false,'Not supported'); return; }
+    setBuyerGeo('loading','Detecting...');
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        buyerLat = pos.coords.latitude;
+        buyerLng = pos.coords.longitude;
+        setBuyerGeo(true, `📍 ${buyerLat.toFixed(3)}, ${buyerLng.toFixed(3)}`);
+        applyFilters();
+      },
+      () => setBuyerGeo(false,'Location denied'),
+      { timeout: 8000 }
+    );
+  }
+
+  function setBuyerGeo(status, msg){
+    const dot = document.getElementById('buyerGeoDot');
+    dot.className = 'geo-dot-sm' + (status === true ? ' on' : status === 'loading' ? ' loading' : '');
+    document.getElementById('buyerGeoText').textContent = msg;
+  }
+
+  // Haversine distance in km
+  function distanceKm(lat1, lng1, lat2, lng2){
+    if(!lat1||!lng1||!lat2||!lng2) return 9999;
+    const R = 6371;
+    const dLat = (lat2-lat1)*Math.PI/180;
+    const dLng = (lng2-lng1)*Math.PI/180;
+    const a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+      Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+      Math.sin(dLng/2)*Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  async function loadResults(){
+    document.getElementById('resultsGrid').innerHTML =
+      '<div style="color:var(--text2);text-align:center;padding:60px;grid-column:1/-1">Searching...</div>';
+    try {
+      const data = await searchListings(q, category);
+      allResults = data.hits || [];
+      applyFilters();
+    } catch(e){
+      document.getElementById('resultsGrid').innerHTML =
+        '<div style="color:var(--red);text-align:center;padding:60px;grid-column:1/-1">' +
+        '⚠️ Could not load results. Make sure backend is running on port 8000.</div>';
+    }
+  }
+
+  function applyFilters(){
+    const minP  = parseFloat(document.getElementById('minPrice').value) || 0;
+    const maxP  = parseFloat(document.getElementById('maxPrice').value) || 999999;
+    const city  = document.getElementById('cityInput').value.toLowerCase().trim();
+
+    let list = allResults.filter(p => {
+      const price = Number(p.price);
+      if(price < minP || price > maxP) return false;
+      if(city && !((p.city||'').toLowerCase().includes(city))) return false;
+      return true;
+    });
+
+    // Apply sort
+    if(currentSort === 'nearest'){
+      list = list.map(p => ({
+        ...p,
+        _dist: distanceKm(buyerLat, buyerLng, parseFloat(p.lat||0), parseFloat(p.lng||0))
+      })).sort((a,b) => a._dist - b._dist);
+    } else if(currentSort === 'price-low'){
+      list.sort((a,b) => a.price - b.price);
+    } else if(currentSort === 'price-high'){
+      list.sort((a,b) => b.price - a.price);
+    } else if(currentSort === 'latest'){
+      list.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    } else if(currentSort === 'delivery'){
+      list = list.filter(p => p.delivery_available);
+    }
+
+    renderResults(list);
+  }
+
+  function renderResults(list){
+    document.getElementById('resultCount').textContent = list.length + ' result' + (list.length !== 1 ? 's' : '');
+    if(!list.length){
+      document.getElementById('resultsGrid').innerHTML =
+        '<div style="color:var(--text2);text-align:center;padding:60px;grid-column:1/-1">' +
+        '😕 No results found. Try adjusting your filters.</div>';
+      return;
+    }
+    document.getElementById('resultsGrid').innerHTML = list.map(p => {
+      const dist = (buyerLat && p.lat)
+        ? `<span style="font-size:11px;color:var(--text3)">📍 ${distanceKm(buyerLat,buyerLng,p.lat,p.lng).toFixed(1)} km away</span>`
+        : '';
+      return productCardHTML(p) + '';
+    }).join('');
+  }
+
+  function doSearch(){
+    q = document.getElementById('searchInput').value.trim();
+    category = '';
+    const url = new URL(window.location);
+    url.searchParams.set('q', q);
+    url.searchParams.delete('category');
+    window.history.replaceState({}, '', url);
+    document.getElementById('pageTitle').textContent = q ? `Results for "${q}"` : 'All Products';
+    loadResults();
+  }
+
+  function setSort(type, el){
+    currentSort = type;
+    document.querySelectorAll('.sort-opt').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+    applyFilters();
+  }
+
+  function resetFilters(){
+    document.getElementById('minPrice').value = '';
+    document.getElementById('maxPrice').value = '';
+    document.getElementById('cityInput').value = '';
+    document.getElementById('priceSlider').value = 100000;
+    currentSort = 'nearest';
+    document.querySelectorAll('.sort-opt').forEach(e => e.classList.remove('active'));
+    document.getElementById('sort-nearest').classList.add('active');
+    applyFilters();
+  }
+
+  document.getElementById('searchInput').addEventListener('keydown', e => {
+    if(e.key === 'Enter') doSearch();
+  });
+
+  // Auto detect location on load
+  detectBuyerLocation();
+  loadResults();
+</script>
+</body>
+</html>

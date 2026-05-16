@@ -166,22 +166,6 @@ async def get_my_store(
         "delivery_available": False,
     }
 
-@router.get("/debug-all")
-async def debug_all_stores(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Store))
-    stores = result.scalars().all()
-    return [
-        {
-            "id": str(s.id),
-            "name": s.name,
-            "owner_id": str(s.owner_id),
-            "whatsapp_number": s.whatsapp_number,
-            "is_verified": s.is_verified,
-            "is_active": s.is_active,
-            "category": str(s.category)
-        }
-        for s in stores
-    ]
 # ── Get store by ID (public) ─────────────────────────
 @router.get("/{store_id}")
 async def get_store(store_id: str, db: AsyncSession = Depends(get_db)):

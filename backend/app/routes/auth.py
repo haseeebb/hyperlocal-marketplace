@@ -157,19 +157,3 @@ async def get_me(
         "role": user.role.value if hasattr(user.role, 'value') else user.role,
         "phone": user.phone
     }
-
-# ── DEBUG (remove before production) ─────────────────
-@router.get("/debug-users")
-async def debug_users(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User))
-    users  = result.scalars().all()
-    return [
-        {
-            "id":           str(u.id),
-            "name":         u.name,
-            "phone":        u.phone,
-            "role":         str(u.role),
-            "has_password": bool(u.hashed_password)
-        }
-        for u in users
-    ]

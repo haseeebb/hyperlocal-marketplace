@@ -589,8 +589,6 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             "4": "delete product",
             "5": "delivery on",
             "6": "delivery off",
-            "7": "pause store",
-            "8": "resume store"
         }
         # Re-handle as the actual command
         await handle_message(sender, shortcuts[text.strip()], media_id)

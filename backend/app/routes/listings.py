@@ -14,7 +14,7 @@ class ListingCreate(BaseModel):
     title: str
     description: Optional[str] = None
     price: float
-    currency: Optional[str] = "USD"
+    currency: Optional[str] = "PKR"
     image_url: Optional[str] = None
     delivery_available: Optional[bool] = False
 

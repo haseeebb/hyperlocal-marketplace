@@ -5,7 +5,6 @@ import cloudinary.uploader
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
 from app.models.models import Store, Listing, User
-from app.services.meili_service import index_listing, remove_listing
 from sqlalchemy import select
 
 # --- Config ---
@@ -266,9 +265,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             "3️⃣ — Update Price\n"
             "4️⃣ — Delete Product\n"
             "5️⃣ — Delivery ON\n"
-            "6️⃣ — Delivery OFF\n"
-            "7️⃣ — Pause Store\n"
-            "8️⃣ — Resume Store\n\n"
+            "6️⃣ — Delivery OFF\n\n"
             "Or type the command name directly."
         )
 
@@ -369,7 +366,6 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             db.add(listing)
             await db.commit()
             await db.refresh(listing)
-            index_listing(listing, store)
 
         await clear_session(sender)
         await send_message(sender,
@@ -472,7 +468,6 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             if listing:
                 listing.is_available = False
                 await db.commit()
-                remove_listing(selected["id"])
 
         await clear_session(sender)
         await send_message(sender,
@@ -556,8 +551,6 @@ async def handle_message(sender: str, text: str, media_id: str = None):
                     select(Store).where(Store.id == listing.store_id)
                 )
                 store = store_result.scalar_one_or_none()
-                if store:
-                    index_listing(listing, store)
 
         await clear_session(sender)
         await send_message(sender,
@@ -586,29 +579,9 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         )
 
     # ══════════════════════════════════════
-    # PAUSE / RESUME STORE
-    # ══════════════════════════════════════
-    elif text in ["pause store", "resume store"]:
-        status = text == "resume store"
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(
-                select(Store).where(
-                    Store.whatsapp_number == sender,
-                    Store.is_active == True
-                )
-            )
-            store = result.scalar_one_or_none()
-            if store:
-                store.is_active = status
-                await db.commit()
-        await send_message(sender,
-            f"✅ Your store is now *{'visible' if status else 'hidden'}*."
-        )
-
-    # ══════════════════════════════════════
     # NUMBER SHORTCUTS FROM MENU
     # ══════════════════════════════════════
-    elif text.strip() in ["1","2","3","4","5","6","7","8"]:
+    elif text.strip() in ["1","2","3","4","5","6","7","8"] and step == "idle":
         shortcuts = {
             "1": "add product",
             "2": "my products",
@@ -621,6 +594,17 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         }
         # Re-handle as the actual command
         await handle_message(sender, shortcuts[text.strip()], media_id)
+
+    # ══════════════════════════════════════
+    # CANCEL / RESET
+    # ══════════════════════════════════════
+    elif text in ["cancel", "stop", "reset", "exit"]:
+        await clear_session(sender)
+        await send_message(sender,
+            "✅ Cancelled.\n\n"
+            "Reply *hi* to start again.\n"
+            "Reply *menu* to manage your store."
+        )
 
     # ══════════════════════════════════════
     # UNKNOWN COMMAND

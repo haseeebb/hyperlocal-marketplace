@@ -3,7 +3,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from app.models.models import Listing, Store
-from app.services.meili_service import index_listing, remove_listing  # ← ADD
 from pydantic import BaseModel
 from typing import Optional
 import uuid
@@ -50,9 +49,6 @@ async def create_listing(data: ListingCreate, db: AsyncSession = Depends(get_db)
     db.add(listing)
     await db.commit()
     await db.refresh(listing)
-
-    # ← Auto-sync to Meilisearch
-    index_listing(listing, store)
 
     return {"message": "Listing created", "listing_id": str(listing.id)}
 
@@ -107,14 +103,6 @@ async def update_listing(
 
     await db.commit()
 
-    # ← Auto-sync updated listing to Meilisearch
-    store_result = await db.execute(
-        select(Store).where(Store.id == listing.store_id)
-    )
-    store = store_result.scalar_one_or_none()
-    if store:
-        index_listing(listing, store)
-
     return {"message": "Listing updated"}
 
 
@@ -129,8 +117,5 @@ async def delete_listing(listing_id: str, db: AsyncSession = Depends(get_db)):
 
     listing.is_available = False
     await db.commit()
-
-    # ← Remove from Meilisearch
-    remove_listing(listing_id)
 
     return {"message": "Listing removed"}

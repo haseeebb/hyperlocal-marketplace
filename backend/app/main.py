@@ -3,8 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 from fastapi.openapi.utils import get_openapi
 from app.routes import stores, listings, search, admin, auth, whatsapp
-from app.services.meili_service import setup_index
-
 security = HTTPBearer()
 
 app = FastAPI(
@@ -48,11 +46,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Run on startup — sets up Meilisearch index + filters
-@app.on_event("startup")
-async def startup_event():
-    setup_index()
-
 app.include_router(auth.router,     prefix="/api/auth",     tags=["auth"])
 app.include_router(stores.router,   prefix="/api/stores",   tags=["stores"])
 app.include_router(listings.router, prefix="/api/listings", tags=["listings"])

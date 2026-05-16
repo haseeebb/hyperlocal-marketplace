@@ -3,7 +3,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.database import get_db
 from app.models.models import Store, Listing, User
-from app.services.meili_service import remove_listing, reindex_all
 from app.routes.auth import verify_token
 from typing import Optional
 import uuid
@@ -123,7 +122,6 @@ async def remove_bad_listing(listing_id: str, db: AsyncSession = Depends(get_db)
         raise HTTPException(status_code=404, detail="Listing not found")
     listing.is_available = False
     await db.commit()
-    remove_listing(listing_id)
     return {"message": "Listing removed"}
 
 
@@ -142,15 +140,3 @@ async def get_stats(db: AsyncSession = Depends(get_db), admin=Depends(get_admin)
         "total_listings":       total_listings.scalar(),
         "new_stores_this_week": new_stores_week.scalar()
     }
-
-
-@router.post("/reindex")
-async def reindex(db: AsyncSession = Depends(get_db), admin=Depends(get_admin)):
-    result = await db.execute(
-        select(Listing, Store)
-        .join(Store, Listing.store_id == Store.id)
-        .where(Store.is_verified == True, Listing.is_available == True)
-    )
-    rows = result.all()
-    count = reindex_all(rows)
-    return {"message": "Reindex complete", "indexed": count}

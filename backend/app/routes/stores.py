@@ -7,6 +7,7 @@ from app.routes.auth import verify_token
 from pydantic import BaseModel
 from typing import Optional
 import uuid
+import re
 
 router = APIRouter()
 
@@ -28,19 +29,26 @@ class StoreCreate(BaseModel):
 @router.post("/register")
 async def register_store(data: StoreCreate, db: AsyncSession = Depends(get_db)):
     
-    # Check if store already exists for this phone number
-    result = await db.execute(
-        select(Store).where(
-            Store.whatsapp_number == data.whatsapp_number,
-            Store.is_active == True
+    # Normalize whatsapp number to 92 format, strip non-digits
+    wa_phone = re.sub(r'\D', '', data.whatsapp_number.strip())
+    if wa_phone.startswith('0'):
+        wa_phone = '92' + wa_phone[1:]
+    elif not wa_phone.startswith('92'):
+        wa_phone = '92' + wa_phone
+    phone_variants = [wa_phone, '0' + wa_phone[2:]]
+
+    for p in phone_variants:
+        result = await db.execute(
+            select(Store).where(
+                Store.whatsapp_number == p,
+                Store.is_active == True
+            )
         )
-    )
-    existing_store = result.scalar_one_or_none()
-    if existing_store:
-        raise HTTPException(
-            status_code=400,
-            detail="A store is already registered with this WhatsApp number. Each number can only have one store."
-        )
+        if result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=400,
+                detail="A store is already registered with this WhatsApp number. Each number can only have one store."
+            )
 
     # Find or create user
     result = await db.execute(select(User).where(User.phone == data.owner_phone))
@@ -73,7 +81,7 @@ async def register_store(data: StoreCreate, db: AsyncSession = Depends(get_db)):
         city=data.city,
         lat=data.lat,
         lng=data.lng,
-        whatsapp_number=data.whatsapp_number,
+        whatsapp_number=wa_phone,
         is_verified=False
     )
     db.add(store)

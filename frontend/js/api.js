@@ -46,13 +46,13 @@ function logout(){
 
 // ─── HTTP HELPERS ────────────────────────────────────
 async function apiGet(path){
-  const r = await fetch(API + path, { headers:{'Authorization':'Bearer '+getToken()} });
+  const r = await fetch(API + path, { headers:{'Authorization':'Bearer '+getToken(),'ngrok-skip-browser-warning':'true'} });
   return r.json();
 }
 async function apiPost(path, data){
   const r = await fetch(API + path, {
     method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken(),'ngrok-skip-browser-warning':'true'},
     body: JSON.stringify(data)
   });
   return r.json();
@@ -60,7 +60,7 @@ async function apiPost(path, data){
 async function apiPut(path, data={}){
   const r = await fetch(API + path, {
     method:'PUT',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken(),'ngrok-skip-browser-warning':'true'},
     body: JSON.stringify(data)
   });
   return r.json();
@@ -68,7 +68,7 @@ async function apiPut(path, data={}){
 async function apiDelete(path){
   const r = await fetch(API + path, {
     method:'DELETE',
-    headers:{'Authorization':'Bearer '+getToken()}
+    headers:{'Authorization':'Bearer '+getToken(),'ngrok-skip-browser-warning':'true'}
   });
   return r.json();
 }
@@ -79,7 +79,7 @@ async function searchListings(q='', category='', maxPrice='', city=''){
   if(category) url += `&category=${category}`;
   if(maxPrice)  url += `&max_price=${maxPrice}`;
   if(city)      url += `&city=${encodeURIComponent(city)}`;
-  const r = await fetch(url);
+  const r = await fetch(url, { headers:{'ngrok-skip-browser-warning':'true'} });
   return r.json();
 }
 

@@ -89,8 +89,23 @@ async def register_buyer(data: BuyerCreate, db: AsyncSession = Depends(get_db)):
 # ── LOGIN ─────────────────────────────────────────────
 @router.post("/login")
 async def login(data: LoginSchema, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.phone == data.phone))
-    user   = result.scalar_one_or_none()
+    # Normalize phone number - try both formats
+    phone = data.phone.strip()
+    phone_variants = [phone]
+
+    if phone.startswith('0'):
+        phone_variants.append('92' + phone[1:])
+    elif phone.startswith('92'):
+        phone_variants.append('0' + phone[2:])
+    elif not phone.startswith('92'):
+        phone_variants.append('92' + phone)
+
+    user = None
+    for p in phone_variants:
+        result = await db.execute(select(User).where(User.phone == p))
+        user = result.scalar_one_or_none()
+        if user:
+            break
 
     if not user or not user.hashed_password:
         raise HTTPException(status_code=401, detail="Invalid credentials")

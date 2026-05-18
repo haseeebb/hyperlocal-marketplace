@@ -1,5 +1,13 @@
 const API = 'https://imagines-despair-smuggling.ngrok-free.dev';
 
+function formatWhatsApp(number) {
+    if (!number) return '';
+    let num = number.replace(/\D/g, '');
+    if (num.startsWith('0')) num = '92' + num.slice(1);
+    if (!num.startsWith('92')) num = '92' + num;
+    return num;
+}
+
 // ─── CART ───────────────────────────────────────────
 let cart = JSON.parse(localStorage.getItem('findx_cart') || '[]');
 
@@ -141,7 +149,7 @@ function productCardHTML(item){
       ${isBuyer ? `
         <button class="btn btn-outline btn-full" style="margin-top:8px"
           onclick='addToCart(${safeItem})'>+ Add to Cart</button>` : ''}
-      <a href="https://wa.me/${item.whatsapp_number}?text=Hi! I am interested in ${encodeURIComponent(item.title)}"
+      <a href="https://wa.me/${formatWhatsApp(item.whatsapp_number)}?text=Hi! I am interested in ${encodeURIComponent(item.title)}"
         target="_blank"
         class="btn btn-green btn-full" style="margin-top:6px">
         💬 Contact on WhatsApp

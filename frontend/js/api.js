@@ -1,4 +1,4 @@
-const API = 'http://localhost:8000';
+const API = 'https://your-ngrok-url.ngrok-free.app';
 
 // ─── CART ───────────────────────────────────────────
 let cart = JSON.parse(localStorage.getItem('findx_cart') || '[]');

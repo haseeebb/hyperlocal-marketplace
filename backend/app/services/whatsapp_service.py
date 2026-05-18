@@ -13,6 +13,9 @@ PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_ID")
 # In-memory session storage (replaces Redis)
 sessions = {}
 
+def reset_session(phone: str):
+    sessions[phone] = {"step": "idle"}
+
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
     api_key=os.getenv("CLOUDINARY_API_KEY"),
@@ -42,7 +45,7 @@ async def save_session(phone: str, session: dict):
     sessions[phone] = session
 
 async def clear_session(phone: str):
-    sessions.pop(phone, None)
+    sessions[phone] = {"step": "idle"}
 
 # ── Image upload helper ───────────────────────────────
 async def download_and_upload_image(media_id: str) -> str:
@@ -77,10 +80,16 @@ async def handle_message(sender: str, text: str, media_id: str = None):
 
     print(f"Message from {sender}: text='{text}', media_id={media_id}, step={step}")
 
+    # GLOBAL M — resets everything
+    if text.strip().lower() in ["m", "menu"] and step not in ["idle"]:
+        sessions[sender] = {"step": "idle"}
+        step = "idle"
+        session = {"step": "idle"}
+
     # ══════════════════════════════════════
     # REGISTRATION FLOW
     # ══════════════════════════════════════
-    if text in ["register", "hello", "hi", "start", "مرحبا"]:
+    if text in ["register", "hello", "hi", "start", "مرحبا", "r"]:
 
         # ── Check if store already exists for this number ──
         async with AsyncSessionLocal() as db:
@@ -96,7 +105,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             await send_message(sender,
                 f"Welcome back! 👋\n\n"
                 f"Your store *{existing.name}* is already registered.\n\n"
-                f"Reply *menu* to manage your store."
+                f"Reply *menu or M* to manage your store."
             )
             return
 
@@ -132,7 +141,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
                     f"🏪 *{store.name}*\n\n"
                     f"Status: {status}\n"
                     f"City: {store.city or 'Not set'}\n\n"
-                    "Reply *menu* to manage your store."
+                    "Reply *menu or M* to manage your store."
                 )
             else:
                 await send_message(sender,
@@ -195,7 +204,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
                 await clear_session(sender)
                 await send_message(sender,
                     "❌ A store is already registered with this number.\n\n"
-                    "Reply *menu* to manage your existing store."
+                    "Reply *menu or M* to manage your existing store."
                 )
                 return
 
@@ -238,7 +247,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
     # ══════════════════════════════════════
     # MAIN MENU
     # ══════════════════════════════════════
-    elif text == "menu":
+    elif text in ["menu", "m"]:
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(Store).where(
@@ -263,11 +272,25 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             "1️⃣ — Add Product\n"
             "2️⃣ — My Products\n"
             "3️⃣ — Update Price\n"
-            "4️⃣ — Delete Product\n"
-            "5️⃣ — Delivery ON\n"
-            "6️⃣ — Delivery OFF\n\n"
+            "4️⃣ — Delete Product\n\n"
             "Or type the command name directly."
         )
+
+    # ══════════════════════════════════════
+    # NUMBER SHORTCUTS FROM MENU
+    # ══════════════════════════════════════
+    elif text.strip() in ["1","2","3","4"] and step not in [
+        "reg_start", "reg_name", "reg_store_name", "reg_category", "reg_city",
+        "add_title", "add_price", "add_description", "add_image",
+        "confirm_delete", "select_product_price", "enter_new_price"
+    ]:
+        shortcuts = {
+            "1": "add product",
+            "2": "my products",
+            "3": "update price",
+            "4": "delete product",
+        }
+        await handle_message(sender, shortcuts[text.strip()], media_id)
 
     # ══════════════════════════════════════
     # ADD PRODUCT FLOW
@@ -360,6 +383,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
                 title=session["title"],
                 description=session.get("description", ""),
                 price=session["price"],
+                currency="PKR",
                 image_url=image_url,
                 is_available=True
             )
@@ -370,7 +394,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         await clear_session(sender)
         await send_message(sender,
             f"✅ *{session['title']}* has been listed successfully!\n\n"
-            "Reply *menu* to see more options."
+            "Reply *menu or M* to see more options."
         )
 
     # ══════════════════════════════════════
@@ -407,7 +431,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         msg = f"📦 *Your listings ({len(items)}):*\n\n"
         for i, item in enumerate(items, 1):
             msg += f"{i}. {item.title} — {item.price} {item.currency}\n"
-        msg += "\nReply *menu* for more options."
+        msg += "\nReply *menu or M* for more options."
         await send_message(sender, msg)
 
     # ══════════════════════════════════════
@@ -441,6 +465,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         msg = "Which product do you want to delete?\nReply with the number:\n\n"
         for i, item in enumerate(items, 1):
             msg += f"{i}. {item.title}\n"
+        msg += "\nReply *M* to go back to main menu."
 
         session = {
             "step":  "confirm_delete",
@@ -450,13 +475,35 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         await send_message(sender, msg)
 
     elif step == "confirm_delete":
+        if text.strip().lower() in ["m", "menu"]:
+            await clear_session(sender)
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(Store).where(
+                        Store.whatsapp_number == sender,
+                        Store.is_verified == True,
+                        Store.is_active == True
+                    )
+                )
+                store = result.scalar_one_or_none()
+            if store:
+                await send_message(sender,
+                    f"🏪 *{store.name}* — Store Menu\n\n"
+                    "Reply with a number:\n\n"
+                    "1️⃣ — Add Product\n"
+                    "2️⃣ — My Products\n"
+                    "3️⃣ — Update Price\n"
+                    "4️⃣ — Delete Product\n\n"
+                    "Or type the command name directly."
+                )
+            return
         items = session.get("items", [])
         try:
             index = int(text) - 1
             if index < 0 or index >= len(items):
                 raise ValueError
         except:
-            await send_message(sender, f"Please reply with a number between 1 and {len(items)}.")
+            await send_message(sender, f"Please reply with a number between 1 and {len(items)}.\nReply *M* to go back to menu.")
             return
 
         selected = items[index]
@@ -472,7 +519,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         await clear_session(sender)
         await send_message(sender,
             f"✅ *{selected['title']}* has been deleted.\n\n"
-            "Reply *menu* for more options."
+            "Reply *menu or M* for more options."
         )
 
     # ══════════════════════════════════════
@@ -506,6 +553,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         msg = "Which product price do you want to update?\nReply with the number:\n\n"
         for i, item in enumerate(items, 1):
             msg += f"{i}. {item.title} — {item.price}\n"
+        msg += "\nReply *M* to go back to main menu."
 
         session = {
             "step":  "select_product_price",
@@ -515,6 +563,28 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         await send_message(sender, msg)
 
     elif step == "select_product_price":
+        if text.strip().lower() in ["m", "menu"]:
+            sessions[sender] = {"step": "idle"}
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(Store).where(
+                        Store.whatsapp_number == sender,
+                        Store.is_verified == True,
+                        Store.is_active == True
+                    )
+                )
+                store = result.scalar_one_or_none()
+            if store:
+                await send_message(sender,
+                    f"🏪 *{store.name}* — Store Menu\n\n"
+                    "Reply with a number:\n\n"
+                    "1️⃣ — Add Product\n"
+                    "2️⃣ — My Products\n"
+                    "3️⃣ — Update Price\n"
+                    "4️⃣ — Delete Product\n\n"
+                    "Or type the command name directly."
+                )
+            return
         items = session.get("items", [])
         try:
             index = int(text) - 1
@@ -523,7 +593,6 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         except:
             await send_message(sender, f"Please reply with a number between 1 and {len(items)}.")
             return
-
         session["selected_item"] = items[index]
         session["step"]          = "enter_new_price"
         await save_session(sender, session)
@@ -532,12 +601,33 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         )
 
     elif step == "enter_new_price":
+        if text.strip().lower() in ["m", "menu"]:
+            sessions[sender] = {"step": "idle"}
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(Store).where(
+                        Store.whatsapp_number == sender,
+                        Store.is_verified == True,
+                        Store.is_active == True
+                    )
+                )
+                store = result.scalar_one_or_none()
+            if store:
+                await send_message(sender,
+                    f"🏪 *{store.name}* — Store Menu\n\n"
+                    "Reply with a number:\n\n"
+                    "1️⃣ — Add Product\n"
+                    "2️⃣ — My Products\n"
+                    "3️⃣ — Update Price\n"
+                    "4️⃣ — Delete Product\n\n"
+                    "Or type the command name directly."
+                )
+            return
         try:
             new_price = float(text.replace(",", "").replace("rs", "").replace("pkr", "").strip())
         except:
             await send_message(sender, "Please send a number only. Example: 750")
             return
-
         selected = session.get("selected_item")
         async with AsyncSessionLocal() as db:
             result = await db.execute(
@@ -547,51 +637,11 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             if listing:
                 listing.price = new_price
                 await db.commit()
-                store_result = await db.execute(
-                    select(Store).where(Store.id == listing.store_id)
-                )
-                store = store_result.scalar_one_or_none()
-
         await clear_session(sender)
         await send_message(sender,
             f"✅ Price updated to *{new_price}* for *{selected['title']}*.\n\n"
-            "Reply *menu* for more options."
+            "Reply *menu or M* for more options."
         )
-
-    # ══════════════════════════════════════
-    # DELIVERY TOGGLE
-    # ══════════════════════════════════════
-    elif text in ["delivery on", "delivery off"]:
-        status = text == "delivery on"
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(
-                select(Store).where(
-                    Store.whatsapp_number == sender,
-                    Store.is_active == True
-                )
-            )
-            store = result.scalar_one_or_none()
-            if store:
-                store.delivery_available = status
-                await db.commit()
-        await send_message(sender,
-            f"✅ Delivery has been turned *{'on' if status else 'off'}*."
-        )
-
-    # ══════════════════════════════════════
-    # NUMBER SHORTCUTS FROM MENU
-    # ══════════════════════════════════════
-    elif text.strip() in ["1","2","3","4","5","6","7","8"] and step == "idle":
-        shortcuts = {
-            "1": "add product",
-            "2": "my products",
-            "3": "update price",
-            "4": "delete product",
-            "5": "delivery on",
-            "6": "delivery off",
-        }
-        # Re-handle as the actual command
-        await handle_message(sender, shortcuts[text.strip()], media_id)
 
     # ══════════════════════════════════════
     # CANCEL / RESET
@@ -601,7 +651,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         await send_message(sender,
             "✅ Cancelled.\n\n"
             "Reply *hi* to start again.\n"
-            "Reply *menu* to manage your store."
+            "Reply *menu or M* to manage your store."
         )
 
     # ══════════════════════════════════════
@@ -610,6 +660,6 @@ async def handle_message(sender: str, text: str, media_id: str = None):
     else:
         await send_message(sender,
             "I didn't understand that. 🤔\n\n"
-            "Reply *menu* to see all commands.\n"
-            "Reply *register* to create a new store."
+            "Reply *M* to see store menu.\n"
+            "Reply *R* to register a new store."
         )

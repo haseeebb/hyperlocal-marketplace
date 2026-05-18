@@ -154,6 +154,11 @@ function productCardHTML(item){
         class="btn btn-green btn-full" style="margin-top:6px">
         💬 Contact on WhatsApp
       </a>
+      ${isBuyer ? `
+      <button class="btn btn-outline btn-full" style="margin-top:6px;border-color:var(--cyan);color:var(--cyan)"
+        onclick='openReviewModal("${item.store_id}","${item.id}","${item.title}")'>
+        ⭐ Write a Review
+      </button>` : ''}
     </div>
   </div>`;
 }
@@ -173,3 +178,17 @@ function hideAlert(id){
 document.addEventListener('DOMContentLoaded', () => {
   updateCartCount();
 });
+
+async function submitReview(storeId, listingId, buyerName, rating, comment) {
+    return await apiPost('/api/reviews/', {
+        store_id:   storeId,
+        listing_id: listingId,
+        buyer_name: buyerName,
+        rating:     rating,
+        comment:    comment
+    });
+}
+
+async function getStoreReviews(storeId) {
+    return await apiGet(`/api/reviews/store/${storeId}`);
+}

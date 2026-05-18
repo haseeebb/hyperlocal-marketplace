@@ -1,4 +1,4 @@
-const API = 'https://your-ngrok-url.ngrok-free.app';
+const API = 'https://imagines-despair-smuggling.ngrok-free.dev';
 
 // ─── CART ───────────────────────────────────────────
 let cart = JSON.parse(localStorage.getItem('findx_cart') || '[]');

@@ -185,12 +185,50 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         session["category"] = cats[text]
         session["step"]     = "reg_city"
         await save_session(sender, session)
-        await send_message(sender, "Which area / city is your store located in?")
+        await send_message(sender,
+            "Which area of Lahore is your store located in?\n\n"
+            "Examples:\n"
+            "• Gulberg\n"
+            "• DHA\n"
+            "• Johar Town\n"
+            "• Model Town\n"
+            "• Bahria Town\n"
+            "• Clifton\n"
+            "• Saddar\n\n"
+            "Type your area name:"
+        )
 
     elif step == "reg_city":
         session["city"] = text.title()
+        session["step"] = "reg_password"
         await save_session(sender, session)
+        await send_message(sender,
+            "Almost done! 🎉\n\n"
+            "Set a password for your website login:\n"
+            "(minimum 6 characters)"
+        )
 
+    elif step == "reg_password":
+        if len(text.strip()) < 6:
+            await send_message(sender, "Password must be at least 6 characters. Please try again.")
+            return
+        session["password"] = text.strip()
+        session["step"] = "reg_confirm"
+        await save_session(sender, session)
+        await send_message(sender,
+            "Confirm your password by typing it again:"
+        )
+
+    elif step == "reg_confirm":
+        if text.strip() != session.get("password"):
+            await send_message(sender,
+                "❌ Passwords don't match. Please enter your password again:"
+            )
+            session["step"] = "reg_password"
+            await save_session(sender, session)
+            return
+
+        # Now save everything including password
         async with AsyncSessionLocal() as db:
 
             # ── Double-check uniqueness before saving ──
@@ -214,16 +252,21 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             )
             user = result.scalar_one_or_none()
 
+            from passlib.context import CryptContext
+            pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
             if not user:
                 user = User(
                     phone=sender,
                     name=session["owner_name"],
-                    role="seller"
+                    role="seller",
+                    hashed_password=pwd_context.hash(session["password"])
                 )
                 db.add(user)
                 await db.flush()
             else:
                 user.role = "seller"
+                user.hashed_password = pwd_context.hash(session["password"])
 
             store = Store(
                 owner_id=user.id,
@@ -239,8 +282,11 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         await clear_session(sender)
         await send_message(sender,
             f"✅ Your store *{session['store_name']}* has been submitted!\n\n"
-            "Our team will review and approve it within 24 hours.\n"
-            "You'll receive a message here once approved.\n\n"
+            "Our team will review and approve it within 24 hours.\n\n"
+            f"Your website login details:\n"
+            f"📱 Phone: {sender}\n"
+            f"🔑 Password: {session['password']}\n"
+            f"🌐 Login: https://hyperlocal-marketplace-zeta.vercel.app/login.html\n\n"
             "Once approved, reply *menu* to manage your store."
         )
 
@@ -281,6 +327,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
     # ══════════════════════════════════════
     elif text.strip() in ["1","2","3","4"] and step not in [
         "reg_start", "reg_name", "reg_store_name", "reg_category", "reg_city",
+        "reg_password", "reg_confirm",
         "add_title", "add_price", "add_description", "add_image",
         "confirm_delete", "select_product_price", "enter_new_price"
     ]:

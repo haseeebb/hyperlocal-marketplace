@@ -1,9 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer
-from fastapi.openapi.utils import get_openapi
-from app.routes import stores, listings, search, admin, auth, whatsapp
-security = HTTPBearer()
+from app.routes import stores, listings, search, admin, auth, whatsapp, reviews
 
 app = FastAPI(
     title="Hyperlocal Marketplace API",
@@ -19,27 +16,6 @@ app = FastAPI(
     ]
 )
 
-def custom_openapi():
-    if app.openapi_schema:
-        return app.openapi_schema
-    openapi_schema = get_openapi(
-        title="Hyperlocal Marketplace API",
-        version="1.0.0",
-        routes=app.routes,
-    )
-    openapi_schema["components"]["securitySchemes"] = {
-        "BearerAuth": {
-            "type": "http",
-            "scheme": "bearer",
-            "bearerFormat": "JWT",
-        }
-    }
-    openapi_schema["security"] = [{"BearerAuth": []}]
-    app.openapi_schema = openapi_schema
-    return app.openapi_schema
-
-app.openapi = custom_openapi
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -51,7 +27,8 @@ app.include_router(stores.router,   prefix="/api/stores",   tags=["stores"])
 app.include_router(listings.router, prefix="/api/listings", tags=["listings"])
 app.include_router(search.router,   prefix="/api/search",   tags=["search"])
 app.include_router(admin.router,    prefix="/api/admin",    tags=["admin"])
-app.include_router(whatsapp.router, prefix="/webhook", tags=["whatsapp"])
+app.include_router(whatsapp.router, prefix="/webhook",     tags=["whatsapp"])
+app.include_router(reviews.router,  prefix="/api/reviews", tags=["reviews"])
 
 @app.get("/")
 async def health():

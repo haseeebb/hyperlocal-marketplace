@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, Numeric, Text, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, String, Boolean, Numeric, Text, DateTime, ForeignKey, Enum, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, declarative_base
 import uuid, datetime, enum
@@ -56,3 +56,14 @@ class Listing(Base):
     delivery_available = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     store = relationship("Store", back_populates="listings")
+
+class Review(Base):
+    __tablename__ = "reviews"
+
+    id         = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    listing_id = Column(UUID(as_uuid=True), ForeignKey("listings.id"), nullable=True)
+    store_id   = Column(UUID(as_uuid=True), ForeignKey("stores.id"), nullable=False)
+    buyer_name = Column(String(100), nullable=False)
+    rating     = Column(Integer, nullable=False)
+    comment    = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)

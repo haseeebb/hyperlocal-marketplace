@@ -2,9 +2,10 @@ from fastapi import APIRouter, Query, Depends
 from typing import Optional
 import meilisearch, os
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, func
 from app.database import get_db
-from app.models.models import Listing, Store
+from app.models.models import Listing, Store, Review
+import uuid
 
 router = APIRouter()
 
@@ -49,10 +50,20 @@ async def search_listings(
         pass
 
     # Fallback: PostgreSQL search
-    query = select(Listing, Store).join(Store, Listing.store_id == Store.id).where(
-        Listing.is_available == True,
-        Store.is_verified == True,
-        Store.is_active == True
+    query = (
+        select(
+            Listing, Store,
+            func.coalesce(func.avg(Review.rating), 0).label('avg_rating'),
+            func.count(Review.id).label('review_count')
+        )
+        .join(Store, Listing.store_id == Store.id)
+        .outerjoin(Review, Review.listing_id == Listing.id)
+        .where(
+            Listing.is_available == True,
+            Store.is_verified == True,
+            Store.is_active == True
+        )
+        .group_by(Listing.id, Store.id)
     )
     if q:
         query = query.where(
@@ -82,6 +93,7 @@ async def search_listings(
         "currency":           listing.currency or "PKR",
         "image_url":          listing.image_url or "",
         "store_name":         store.name,
+        "store_id":           str(store.id),
         "whatsapp_number":    store.whatsapp_number,
         "city":               store.city or "",
         "category":           store.category.value if store.category else "",
@@ -89,6 +101,26 @@ async def search_listings(
         "lat":                float(store.lat) if store.lat else None,
         "lng":                float(store.lng) if store.lng else None,
         "created_at":         str(listing.created_at),
-    } for listing, store in rows]
+        "avg_rating":         round(float(avg_rating), 1),
+        "review_count":       review_count,
+    } for listing, store, avg_rating, review_count in rows]
+
+    # Fetch top-2 reviews per listing
+    for hit in hits:
+        reviews_result = await db.execute(
+            select(Review)
+            .where(Review.listing_id == uuid.UUID(hit["id"]))
+            .order_by(Review.created_at.desc())
+            .limit(2)
+        )
+        reviews = reviews_result.scalars().all()
+        hit["reviews"] = [
+            {
+                "buyer_name": r.buyer_name,
+                "rating":     r.rating,
+                "comment":    r.comment or ""
+            }
+            for r in reviews
+        ]
 
     return {"hits": hits, "query": q, "estimatedTotalHits": len(hits)}

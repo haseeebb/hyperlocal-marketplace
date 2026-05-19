@@ -1,5 +1,14 @@
 const API = 'https://imagines-despair-smuggling.ngrok-free.dev';
 
+function getStarDisplay(rating) {
+    const full = Math.round(rating);
+    let stars = '';
+    for (let i = 1; i <= 5; i++) {
+        stars += i <= full ? '★' : '☆';
+    }
+    return `<span style="color:#FFD700">${stars}</span> ${rating > 0 ? rating.toFixed(1) : 'No reviews'}`;
+}
+
 function formatWhatsApp(number) {
     if (!number) return '';
     let num = number.replace(/\D/g, '');
@@ -144,7 +153,7 @@ function productCardHTML(item){
       <div class="product-name">${item.title}</div>
       <div class="product-bottom">
         <div class="product-price">PKR ${Number(item.price).toLocaleString()}</div>
-        <div class="product-rating">★★★★★</div>
+        <div class="product-rating">${getStarDisplay(item.avg_rating || 0)} (${item.review_count || 0})</div>
       </div>
       ${isBuyer ? `
         <button class="btn btn-outline btn-full" style="margin-top:8px"
@@ -159,6 +168,32 @@ function productCardHTML(item){
         onclick='openReviewModal("${item.store_id}","${item.id}","${item.title}")'>
         ⭐ Write a Review
       </button>` : ''}
+      ${item.reviews && item.reviews.length > 0 ? `
+      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">
+          <span style="color:#FFD700">★</span> ${item.avg_rating || 0} · ${item.review_count || item.reviews.length} review${item.review_count > 1 ? 's' : ''}
+        </div>
+        <div id="reviews-shown-${item.id}">
+          ${item.reviews.slice(0,2).map(r => `
+            <div style="background:var(--bg3);border-radius:8px;padding:8px;margin-bottom:6px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:12px;font-weight:600">${r.buyer_name}</span>
+                <span style="font-size:11px;color:#FFD700">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span>
+              </div>
+              <div style="font-size:11px;color:var(--text2)">${r.comment || ''}</div>
+            </div>
+          `).join('')}
+        </div>
+        <div id="reviews-extra-${item.id}" style="display:none"></div>
+        ${item.review_count > 2 ? `
+          <button id="reviewbtn-${item.id}"
+            onclick="toggleReviews('${item.id}')"
+            style="font-size:12px;color:var(--cyan);background:none;border:none;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:4px">
+            <span id="reviewbtn-icon-${item.id}">▼</span>
+            <span id="reviewbtn-text-${item.id}">Show ${item.review_count - 2} more reviews</span>
+          </button>
+        ` : ''}
+      </div>` : ''}
     </div>
   </div>`;
 }
@@ -191,4 +226,49 @@ async function submitReview(storeId, listingId, buyerName, rating, comment) {
 
 async function getStoreReviews(storeId) {
     return await apiGet(`/api/reviews/store/${storeId}`);
+}
+
+// ── Reviews ───────────────────────────────────────────
+const reviewsExpanded = {};
+
+async function toggleReviews(listingId) {
+  const shown      = document.getElementById(`reviews-shown-${listingId}`);
+  const extra      = document.getElementById(`reviews-extra-${listingId}`);
+  const btnText    = document.getElementById(`reviewbtn-text-${listingId}`);
+  const btnIcon    = document.getElementById(`reviewbtn-icon-${listingId}`);
+  const isExpanded = reviewsExpanded[listingId];
+
+  if (!isExpanded) {
+    try {
+      const data = await apiGet(`/api/reviews/listing/${listingId}`);
+      shown.style.display = 'none';
+      extra.innerHTML = `
+        <div style="max-height:260px;overflow-y:auto;padding-right:4px;
+          scrollbar-width:thin;scrollbar-color:var(--cyan) var(--bg3)">
+          ${data.map(r => `
+            <div style="background:var(--bg3);border-radius:8px;padding:8px;margin-bottom:6px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:12px;font-weight:600">${r.buyer_name}</span>
+                <span style="font-size:11px;color:#FFD700">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span>
+              </div>
+              <div style="font-size:11px;color:var(--text2)">${r.comment || ''}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      extra.style.display = 'block';
+      btnText.textContent = 'Show less';
+      btnIcon.textContent = '▲';
+      reviewsExpanded[listingId] = true;
+    } catch(e) {
+      console.error('Failed to load reviews:', e);
+    }
+  } else {
+    shown.style.display = 'block';
+    extra.style.display = 'none';
+    extra.innerHTML = '';
+    btnText.textContent = 'Show more reviews';
+    btnIcon.textContent = '▼';
+    reviewsExpanded[listingId] = false;
+  }
 }

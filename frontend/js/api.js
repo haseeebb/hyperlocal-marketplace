@@ -228,6 +228,61 @@ async function getStoreReviews(storeId) {
     return await apiGet(`/api/reviews/store/${storeId}`);
 }
 
+// ── Review Modal ──────────────────────────────────────
+let currentReview = { storeId: null, listingId: null };
+let selectedRating = 0;
+
+function openReviewModal(storeId, listingId, title) {
+  const user = getUser();
+  currentReview = { storeId, listingId };
+  document.getElementById('reviewProductTitle').textContent = `Review: ${title}`;
+  document.getElementById('reviewName').value = user ? user.name : '';
+  document.getElementById('reviewComment').value = '';
+  selectedRating = 0;
+  updateStars(0);
+  document.getElementById('reviewModal').style.display = 'flex';
+}
+
+function closeReviewModal() {
+  document.getElementById('reviewModal').style.display = 'none';
+}
+
+function setRating(rating) {
+  selectedRating = rating;
+  updateStars(rating);
+}
+
+function updateStars(rating) {
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById(`star${i}`).textContent = i <= rating ? '★' : '☆';
+    document.getElementById(`star${i}`).style.color = i <= rating ? '#FFD700' : 'var(--text2)';
+  }
+}
+
+async function submitReviewForm() {
+  const name    = document.getElementById('reviewName').value.trim();
+  const comment = document.getElementById('reviewComment').value.trim();
+
+  if (!name) { alert('Please enter your name'); return; }
+  if (!selectedRating) { alert('Please select a rating'); return; }
+
+  try {
+    const result = await submitReview(
+      currentReview.storeId,
+      currentReview.listingId,
+      name,
+      selectedRating,
+      comment
+    );
+    if (result.message) {
+      closeReviewModal();
+      alert('✅ Review submitted successfully! Thank you!');
+    }
+  } catch(e) {
+    alert('Failed to submit review. Please try again.');
+  }
+}
+
 // ── Reviews ───────────────────────────────────────────
 const reviewsExpanded = {};
 

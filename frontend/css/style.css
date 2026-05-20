@@ -144,4 +144,22 @@ footer{border-top:1px solid var(--border);padding:24px;text-align:center;color:v
   .stats-row{gap:20px}
   nav{padding:0 16px}
   .section{padding:0 16px 32px}
+  .product-name{font-size:12px}
+  .product-price{font-size:13px}
+  .product-rating{font-size:10px;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .product-info{padding:8px}
+  .product-img{height:120px}
+  .btn{font-size:11px;padding:7px 8px}
+  .product-store{font-size:10px}
+  .cats-grid{grid-template-columns:repeat(2,1fr)}
+  .search-box input{font-size:13px;padding:10px 12px}
+  .nav-btn{padding:5px 10px;font-size:12px}
+}
+
+@media(max-width:400px){
+  .products-grid{grid-template-columns:1fr}
+  .product-img{height:160px}
+  .product-name{font-size:14px}
+  .product-price{font-size:16px}
+  .btn{font-size:13px;padding:10px}
 }

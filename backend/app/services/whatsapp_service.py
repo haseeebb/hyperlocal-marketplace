@@ -103,19 +103,18 @@ async def handle_message(sender: str, text: str, media_id: str = None):
 
         if existing:
             await send_message(sender,
-                f"Welcome back! 👋\n\n"
-                f"Your store *{existing.name}* is already registered.\n\n"
-                f"Reply *menu or M* to manage your store."
+                f"Wapas khush amdeed! 👋\n\n"
+                f"Aap ka store *{existing.name}* pehle se registered hai.\n\n"
+                f"Store manage karne ke liye *M* likhein."
             )
             return
 
         await send_message(sender,
-            "Welcome to Find X Marketplace! 🎉\n\n"
-            "Let's set up your store in a few easy steps.\n\n"
-            "Reply with a number to continue:\n\n"
-            "1️⃣ — Register New Store\n"
-            "2️⃣ — Check Store Status\n\n"
-            "Or reply *1* to start registration now."
+            "Find X Marketplace mein khush amdeed! 🎉\n\n"
+            "Apna store register karein ya status check karein:\n\n"
+            "1️⃣ — Naya Store Register Karen\n"
+            "2️⃣ — Store Status Check Karen\n\n"
+            "1 likhein registration shuru karne ke liye!"
         )
         session = {"step": "reg_start"}
         await save_session(sender, session)
@@ -126,8 +125,8 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             session = {"step": "reg_name"}
             await save_session(sender, session)
             await send_message(sender,
-                "Great! Let's register your store. 🏪\n\n"
-                "What is your full name?"
+                "Zabardast! Store register karte hain! 🏪\n\n"
+                "Aap ka poora naam kya hai?"
             )
         elif text == "2":
             async with AsyncSessionLocal() as db:
@@ -140,20 +139,20 @@ async def handle_message(sender: str, text: str, media_id: str = None):
                 await send_message(sender,
                     f"🏪 *{store.name}*\n\n"
                     f"Status: {status}\n"
-                    f"City: {store.city or 'Not set'}\n\n"
-                    "Reply *menu or M* to manage your store."
+                    f"Area: {store.city or 'Set nahi'}\n\n"
+                    "Store manage karne ke liye *M* likhein."
                 )
             else:
                 await send_message(sender,
-                    "No store found for your number.\n\n"
-                    "Reply *register* to create one."
+                    "Aap ke number pe koi store nahi mila.\n\n"
+                    "Store banane ke liye *hi* likhein."
                 )
             await clear_session(sender)
         else:
             await send_message(sender,
-                "Please reply with:\n"
-                "1️⃣ — Register New Store\n"
-                "2️⃣ — Check Store Status"
+                "Kripya reply karein:\n"
+                "1️⃣ — Naya Store Register Karen\n"
+                "2️⃣ — Store Status Check Karen"
             )
 
     elif step == "reg_name":
@@ -161,8 +160,8 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         session["step"]       = "reg_store_name"
         await save_session(sender, session)
         await send_message(sender,
-            f"Nice to meet you, {session['owner_name']}! 👋\n\n"
-            "What is your store name?"
+            f"Khushi hui milke, {session['owner_name']}! 👋\n\n"
+            "Aap ke store ka naam kya hai?"
         )
 
     elif step == "reg_store_name":
@@ -170,7 +169,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         session["step"]       = "reg_category"
         await save_session(sender, session)
         await send_message(sender,
-            "What type of store is it? Reply with a number:\n\n"
+            "Aap ka store kis qisam ka hai? Number reply karein:\n\n"
             "1️⃣ Products\n"
             "2️⃣ Services\n"
             "3️⃣ Restaurant\n"
@@ -180,22 +179,21 @@ async def handle_message(sender: str, text: str, media_id: str = None):
     elif step == "reg_category":
         cats = {"1": "products", "2": "services", "3": "restaurant", "4": "hotel"}
         if text not in cats:
-            await send_message(sender, "Please reply with 1, 2, 3, or 4.")
+            await send_message(sender, "Kripya 1, 2, 3, ya 4 likhein.")
             return
         session["category"] = cats[text]
         session["step"]     = "reg_city"
         await save_session(sender, session)
         await send_message(sender,
-            "Which area of Lahore is your store located in?\n\n"
-            "Examples:\n"
+            "Aap ka store Lahore ke kis area mein hai?\n\n"
+            "Misaal ke taur par:\n"
             "• Gulberg\n"
             "• DHA\n"
             "• Johar Town\n"
             "• Model Town\n"
             "• Bahria Town\n"
-            "• Clifton\n"
             "• Saddar\n\n"
-            "Type your area name:"
+            "Apna area naam likhein:"
         )
 
     elif step == "reg_city":
@@ -203,26 +201,26 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         session["step"] = "reg_password"
         await save_session(sender, session)
         await send_message(sender,
-            "Almost done! 🎉\n\n"
-            "Set a password for your website login:\n"
-            "(minimum 6 characters)"
+            "Bas thoda aur! 🎉\n\n"
+            "Website login ke liye password set karein:\n"
+            "(kam az kam 6 characters)"
         )
 
     elif step == "reg_password":
         if len(text.strip()) < 6:
-            await send_message(sender, "Password must be at least 6 characters. Please try again.")
+            await send_message(sender, "Password kam az kam 6 characters ka hona chahiye. Dobara likhein.")
             return
         session["password"] = text.strip()
         session["step"] = "reg_confirm"
         await save_session(sender, session)
         await send_message(sender,
-            "Confirm your password by typing it again:"
+            "Password confirm karne ke liye dobara likhein:"
         )
 
     elif step == "reg_confirm":
         if text.strip() != session.get("password"):
             await send_message(sender,
-                "❌ Passwords don't match. Please enter your password again:"
+                "❌ Password match nahi hua. Dobara enter karein:"
             )
             session["step"] = "reg_password"
             await save_session(sender, session)
@@ -241,8 +239,8 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             if check.scalar_one_or_none():
                 await clear_session(sender)
                 await send_message(sender,
-                    "❌ A store is already registered with this number.\n\n"
-                    "Reply *menu or M* to manage your existing store."
+                    "❌ Is number pe pehle se ek store registered hai.\n\n"
+                    "Apna store manage karne ke liye *M* likhein."
                 )
                 return
 
@@ -281,13 +279,13 @@ async def handle_message(sender: str, text: str, media_id: str = None):
 
         await clear_session(sender)
         await send_message(sender,
-            f"✅ Your store *{session['store_name']}* has been submitted!\n\n"
-            "Our team will review and approve it within 24 hours.\n\n"
-            f"Your website login details:\n"
+            f"✅ Aap ka store *{session['store_name']}* submit ho gaya!\n\n"
+            "Hamari team 24 ghante mein review karegi.\n\n"
+            f"Website login details:\n"
             f"📱 Phone: {sender}\n"
             f"🔑 Password: {session['password']}\n"
             f"🌐 Login: https://hyperlocal-marketplace-zeta.vercel.app/login.html\n\n"
-            "Once approved, reply *menu* to manage your store."
+            "Approve hone ke baad *M* likhein store manage karne ke liye."
         )
 
     # ══════════════════════════════════════
@@ -306,9 +304,9 @@ async def handle_message(sender: str, text: str, media_id: str = None):
 
         if not store:
             await send_message(sender,
-                "⚠️ Your store is not verified yet.\n"
-                "Please wait for admin approval.\n\n"
-                "If you haven't registered yet, reply *register*."
+                "⚠️ Aap ka store abhi verify nahi hua.\n"
+                "Admin approval ka intezaar karein.\n\n"
+                "Agar registered nahi hain toh *hi* likhein."
             )
             return
 
@@ -355,22 +353,22 @@ async def handle_message(sender: str, text: str, media_id: str = None):
 
         if not store:
             await send_message(sender,
-                "⚠️ Your store is not verified yet.\n"
-                "Please wait for admin approval before adding products."
+                "⚠️ Aap ka store abhi verify nahi hua.\n"
+                "Products add karne se pehle admin approval ka intezaar karein."
             )
             return
 
         session = {"step": "add_title"}
         await save_session(sender, session)
-        await send_message(sender, "What is the product or service name?")
+        await send_message(sender, "Product ya service ka naam kya hai?\n\n_(Wapas jane ke liye M likhein)_")
 
     elif step == "add_title":
         session["title"] = text.title()
         session["step"]  = "add_price"
         await save_session(sender, session)
         await send_message(sender,
-            f"Got it: *{session['title']}* ✅\n\n"
-            "What is the price? (numbers only, e.g. 500)"
+            f"Theek hai: *{session['title']}* ✅\n\n"
+            "Price kya hai? (sirf number, misaal: 500)"
         )
 
     elif step == "add_price":
@@ -378,13 +376,13 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             price = float(text.replace(",", "").replace("rs", "").replace("pkr", "").strip())
             session["price"] = price
         except:
-            await send_message(sender, "Please send a number only. Example: 500 or 9.99")
+            await send_message(sender, "Sirf number likhein. Misaal: 500 ya 9.99")
             return
         session["step"] = "add_description"
         await save_session(sender, session)
         await send_message(sender,
-            "Add a short description.\n"
-            "(or reply *skip* to skip)"
+            "Mukhtasar description likhein.\n"
+            "(ya *skip* likhein chorne ke liye)"
         )
 
     elif step == "add_description":
@@ -392,8 +390,8 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         session["step"]        = "add_image"
         await save_session(sender, session)
         await send_message(sender,
-            "Now send a photo of the product 📸\n"
-            "(or reply *skip* to skip)"
+            "Product ki photo bhejein 📸\n"
+            "(ya *skip* likhein chorne ke liye)"
         )
 
     elif step == "add_image":
@@ -408,7 +406,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         elif text == "skip":
             pass
         else:
-            await send_message(sender, "Please send a photo or reply *skip*.")
+            await send_message(sender, "Photo bhejein ya *skip* likhein.")
             return
 
         async with AsyncSessionLocal() as db:
@@ -440,8 +438,8 @@ async def handle_message(sender: str, text: str, media_id: str = None):
 
         await clear_session(sender)
         await send_message(sender,
-            f"✅ *{session['title']}* has been listed successfully!\n\n"
-            "Reply *menu or M* to see more options."
+            f"✅ *{session['title']}* successfully list ho gaya!\n\n"
+            "Aur options ke liye *M* likhein."
         )
 
     # ══════════════════════════════════════
@@ -457,7 +455,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             )
             store = store_result.scalar_one_or_none()
             if not store:
-                await send_message(sender, "No store found. Reply *register* to create one.")
+                await send_message(sender, "Koi store nahi mila. Store banane ke liye *hi* likhein.")
                 return
 
             listings_result = await db.execute(
@@ -470,15 +468,15 @@ async def handle_message(sender: str, text: str, media_id: str = None):
 
         if not items:
             await send_message(sender,
-                "You have no active listings.\n"
-                "Reply *add product* to add one."
+                "Aap ka koi active listing nahi hai.\n"
+                "Product add karne ke liye *1* likhein."
             )
             return
 
-        msg = f"📦 *Your listings ({len(items)}):*\n\n"
+        msg = f"📦 *Aap ke products ({len(items)}):*\n\n"
         for i, item in enumerate(items, 1):
             msg += f"{i}. {item.title} — {item.price} {item.currency}\n"
-        msg += "\nReply *menu or M* for more options."
+        msg += "\nAur options ke liye *M* likhein."
         await send_message(sender, msg)
 
     # ══════════════════════════════════════
@@ -509,10 +507,10 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             await send_message(sender, "You have no listings to delete.")
             return
 
-        msg = "Which product do you want to delete?\nReply with the number:\n\n"
+        msg = "Kaunsa product delete karna chahte hain?\nNumber reply karein:\n\n"
         for i, item in enumerate(items, 1):
             msg += f"{i}. {item.title}\n"
-        msg += "\nReply *M* to go back to main menu."
+        msg += "\nWapas jane ke liye *M* likhein."
 
         session = {
             "step":  "confirm_delete",
@@ -536,12 +534,12 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             if store:
                 await send_message(sender,
                     f"🏪 *{store.name}* — Store Menu\n\n"
-                    "Reply with a number:\n\n"
-                    "1️⃣ — Add Product\n"
-                    "2️⃣ — My Products\n"
-                    "3️⃣ — Update Price\n"
-                    "4️⃣ — Delete Product\n\n"
-                    "Or type the command name directly."
+                    "Number reply karein:\n\n"
+                    "1️⃣ — Product Add Karen\n"
+                    "2️⃣ — Mere Products Dekhein\n"
+                    "3️⃣ — Price Update Karen\n"
+                    "4️⃣ — Product Delete Karen\n\n"
+                    "Ya seedha command likhein."
                 )
             return
         items = session.get("items", [])
@@ -550,7 +548,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             if index < 0 or index >= len(items):
                 raise ValueError
         except:
-            await send_message(sender, f"Please reply with a number between 1 and {len(items)}.\nReply *M* to go back to menu.")
+            await send_message(sender, f"1 aur {len(items)} ke darmiyan number likhein.\nWapas jane ke liye *M* likhein.")
             return
 
         selected = items[index]
@@ -565,8 +563,8 @@ async def handle_message(sender: str, text: str, media_id: str = None):
 
         await clear_session(sender)
         await send_message(sender,
-            f"✅ *{selected['title']}* has been deleted.\n\n"
-            "Reply *menu or M* for more options."
+            f"✅ *{selected['title']}* delete ho gaya.\n\n"
+            "Aur options ke liye *M* likhein."
         )
 
     # ══════════════════════════════════════
@@ -597,10 +595,10 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             await send_message(sender, "You have no listings.")
             return
 
-        msg = "Which product price do you want to update?\nReply with the number:\n\n"
+        msg = "Kis product ka price update karna chahte hain?\nNumber reply karein:\n\n"
         for i, item in enumerate(items, 1):
             msg += f"{i}. {item.title} — {item.price}\n"
-        msg += "\nReply *M* to go back to main menu."
+        msg += "\nWapas jane ke liye *M* likhein."
 
         session = {
             "step":  "select_product_price",
@@ -624,12 +622,12 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             if store:
                 await send_message(sender,
                     f"🏪 *{store.name}* — Store Menu\n\n"
-                    "Reply with a number:\n\n"
-                    "1️⃣ — Add Product\n"
-                    "2️⃣ — My Products\n"
-                    "3️⃣ — Update Price\n"
-                    "4️⃣ — Delete Product\n\n"
-                    "Or type the command name directly."
+                    "Number reply karein:\n\n"
+                    "1️⃣ — Product Add Karen\n"
+                    "2️⃣ — Mere Products Dekhein\n"
+                    "3️⃣ — Price Update Karen\n"
+                    "4️⃣ — Product Delete Karen\n\n"
+                    "Ya seedha command likhein."
                 )
             return
         items = session.get("items", [])
@@ -638,13 +636,13 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             if index < 0 or index >= len(items):
                 raise ValueError
         except:
-            await send_message(sender, f"Please reply with a number between 1 and {len(items)}.")
+            await send_message(sender, f"1 aur {len(items)} ke darmiyan number likhein.")
             return
         session["selected_item"] = items[index]
         session["step"]          = "enter_new_price"
         await save_session(sender, session)
         await send_message(sender,
-            f"What is the new price for *{items[index]['title']}*?"
+            f"*{items[index]['title']}* ka naya price kya hai?"
         )
 
     elif step == "enter_new_price":
@@ -662,18 +660,18 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             if store:
                 await send_message(sender,
                     f"🏪 *{store.name}* — Store Menu\n\n"
-                    "Reply with a number:\n\n"
-                    "1️⃣ — Add Product\n"
-                    "2️⃣ — My Products\n"
-                    "3️⃣ — Update Price\n"
-                    "4️⃣ — Delete Product\n\n"
-                    "Or type the command name directly."
+                    "Number reply karein:\n\n"
+                    "1️⃣ — Product Add Karen\n"
+                    "2️⃣ — Mere Products Dekhein\n"
+                    "3️⃣ — Price Update Karen\n"
+                    "4️⃣ — Product Delete Karen\n\n"
+                    "Ya seedha command likhein."
                 )
             return
         try:
             new_price = float(text.replace(",", "").replace("rs", "").replace("pkr", "").strip())
         except:
-            await send_message(sender, "Please send a number only. Example: 750")
+            await send_message(sender, "Sirf number likhein. Misaal: 750")
             return
         selected = session.get("selected_item")
         async with AsyncSessionLocal() as db:
@@ -686,8 +684,8 @@ async def handle_message(sender: str, text: str, media_id: str = None):
                 await db.commit()
         await clear_session(sender)
         await send_message(sender,
-            f"✅ Price updated to *{new_price}* for *{selected['title']}*.\n\n"
-            "Reply *menu or M* for more options."
+            f"✅ *{selected['title']}* ka price *{new_price}* ho gaya.\n\n"
+            "Aur options ke liye *M* likhein."
         )
 
     # ══════════════════════════════════════
@@ -696,9 +694,9 @@ async def handle_message(sender: str, text: str, media_id: str = None):
     elif text in ["cancel", "stop", "reset", "exit"]:
         await clear_session(sender)
         await send_message(sender,
-            "✅ Cancelled.\n\n"
-            "Reply *hi* to start again.\n"
-            "Reply *menu or M* to manage your store."
+            "✅ Cancel ho gaya.\n\n"
+            "Dobara shuru karne ke liye *hi* likhein.\n"
+            "Store manage karne ke liye *M* likhein."
         )
 
     # ══════════════════════════════════════
@@ -706,7 +704,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
     # ══════════════════════════════════════
     else:
         await send_message(sender,
-            "I didn't understand that. 🤔\n\n"
-            "Reply *M* to see store menu.\n"
-            "Reply *R* to register a new store."
+            "Samajh nahi aaya. 🤔\n\n"
+            "Store menu ke liye *M* likhein.\n"
+            "Naya store register karne ke liye *R* likhein."
         )

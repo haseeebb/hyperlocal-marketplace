@@ -103,7 +103,7 @@ async function searchListings(q='', category='', maxPrice='', city=''){
 // ─── REUSABLE HTML COMPONENTS ────────────────────────
 function navHTML(){
   const user = getUser();
-  const isBuyer = !user || user.role === 'buyer';
+  const isBuyer = user && user.role === 'buyer';
   return `
   <nav>
     <a href="index.html" class="logo">Find<span>X</span></a>
@@ -137,7 +137,7 @@ function footerHTML(){
 function productCardHTML(item){
   const safeItem = JSON.stringify(item).replace(/"/g,'&quot;');
   const user = getUser();
-  const isBuyer = !user || user.role === 'buyer';
+  const isBuyer = user && user.role === 'buyer';
   return `
   <div class="product-card">
     ${item.delivery_available ? '<div class="product-badge badge-delivery">🚚 Delivery</div>' : ''}

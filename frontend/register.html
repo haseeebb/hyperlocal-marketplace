@@ -105,7 +105,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Phone Number *</label>
-          <input type="text" id="b-phone" class="form-input" placeholder="e.g. 03001234567 or 923001234567" maxlength="13">
+          <input type="text" id="b-phone" class="form-input" placeholder="e.g. 03001234567 or 923001234567" maxlength="12">
         </div>
         <div class="form-group">
           <label class="form-label">Address / Area in Lahore *</label>
@@ -133,6 +133,13 @@
         <div class="geo-bar">
           <div class="geo-dot loading" id="geoDot"></div>
           <span id="geoText">Detecting your location for nearest-store search...</span>
+        </div>
+        <div id="retryGeoWrap" style="display:none;margin-bottom:12px">
+          <button type="button" class="btn btn-outline"
+            style="font-size:12px;padding:7px 16px"
+            onclick="retryLocation()">
+            🔄 Try Again
+          </button>
         </div>
         <input type="hidden" id="s-lat">
         <input type="hidden" id="s-lng">
@@ -183,11 +190,43 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Store Area in Lahore *</label>
-            <input type="text" id="s-city" class="form-input" placeholder="e.g. Gulberg, DHA">
+            <select id="s-city" class="form-input">
+              <option value="">-- Select Area --</option>
+              <option value="DHA (Defence)">DHA (Defence)</option>
+              <option value="Gulberg">Gulberg</option>
+              <option value="Model Town">Model Town</option>
+              <option value="Johar Town">Johar Town</option>
+              <option value="Township">Township</option>
+              <option value="Garden Town">Garden Town</option>
+              <option value="Faisal Town">Faisal Town</option>
+              <option value="Cantt">Cantt</option>
+              <option value="Bahria Town">Bahria Town</option>
+              <option value="Iqbal Town">Iqbal Town</option>
+              <option value="Wapda Town">Wapda Town</option>
+              <option value="Valencia Town">Valencia Town</option>
+              <option value="Askari">Askari</option>
+              <option value="Walled City / Androon Shehr">Walled City / Androon Shehr</option>
+              <option value="Anarkali">Anarkali</option>
+              <option value="Mall Road">Mall Road</option>
+              <option value="Shadman">Shadman</option>
+              <option value="Mughalpura">Mughalpura</option>
+              <option value="Samanabad">Samanabad</option>
+              <option value="Shahdara">Shahdara</option>
+              <option value="Raiwind">Raiwind</option>
+              <option value="Thokar Niaz Baig">Thokar Niaz Baig</option>
+              <option value="Multan Road">Multan Road</option>
+              <option value="Ferozepur Road">Ferozepur Road</option>
+              <option value="Wagah">Wagah</option>
+              <option value="Harbanspura">Harbanspura</option>
+              <option value="Baghbanpura">Baghbanpura</option>
+              <option value="Misri Shah">Misri Shah</option>
+              <option value="Ichhra">Ichhra</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
           <div class="form-group">
             <label class="form-label">WhatsApp Number *</label>
-            <input type="text" id="s-whatsapp" class="form-input" placeholder="e.g. 03001234567 or 923001234567" maxlength="13">
+            <input type="text" id="s-whatsapp" class="form-input" placeholder="e.g. 03001234567 or 923001234567" maxlength="12">
           </div>
         </div>
         <div class="form-group">
@@ -259,6 +298,7 @@
       () => {
         setGeo('err','Location denied. Please enter coordinates manually.');
         document.getElementById('manualGeoWrap').style.display = 'block';
+        document.getElementById('retryGeoWrap').style.display = 'block';
       },
       { timeout: 10000 }
     );
@@ -273,6 +313,12 @@
     document.querySelectorAll('.cat-opt').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
     document.getElementById('s-category').value = el.dataset.val;
+  }
+
+  function retryLocation(){
+    document.getElementById('retryGeoWrap').style.display = 'none';
+    document.getElementById('manualGeoWrap').style.display = 'none';
+    detectLocation();
   }
 
   function switchRole(role){

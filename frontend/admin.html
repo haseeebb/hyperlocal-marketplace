@@ -10,7 +10,23 @@
 
 <div id="nav-ph"></div>
 
-<div style="max-width:1000px;margin:0 auto;padding:32px 24px">
+<!-- ── Confirm Modal ─────────────────────────────────── -->
+<div id="confirmModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.75);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border-radius:16px;padding:28px;width:90%;max-width:380px;
+    border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+    <div style="font-size:36px;text-align:center;margin-bottom:12px" id="confirmIcon">⚠️</div>
+    <h3 style="font-size:17px;font-weight:700;text-align:center;margin-bottom:8px" id="confirmTitle"></h3>
+    <p style="color:var(--text2);font-size:13px;text-align:center;line-height:1.6;margin-bottom:24px" id="confirmMsg"></p>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-outline" style="flex:1" onclick="closeConfirm()">Cancel</button>
+      <button id="confirmOkBtn" class="btn" style="flex:1;font-weight:700" onclick="confirmOk()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ──────────────────────────────────────────── -->
+<div id="main-wrap" style="max-width:1000px;margin:0 auto;padding:32px 24px">
 
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px">
     <h2 style="font-size:24px;font-weight:800">Admin Dashboard</h2>
@@ -102,10 +118,39 @@
   document.getElementById('nav-ph').innerHTML = navHTML();
   document.getElementById('footer-ph').innerHTML = footerHTML();
 
-  if(!isLoggedIn()){ window.location.href = 'login.html'; }
+  window.addEventListener('load', function(){
+    if(!isLoggedIn()){ window.location.href = 'login.html'; return; }
+    const user = getUser();
+    if(user) document.getElementById('adminName').textContent = 'Logged in as ' + user.name;
+    loadStats();
+    loadPending();
+  });
 
-  const user = getUser();
-  if(user) document.getElementById('adminName').textContent = 'Logged in as ' + user.name;
+  // ── Confirm Modal ─────────────────────────────────
+  let confirmCallback = null;
+
+  function showConfirm(icon, title, msg, btnText, btnColor, callback){
+    confirmCallback = callback;
+    document.getElementById('confirmIcon').textContent  = icon;
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMsg').textContent   = msg;
+    document.getElementById('confirmOkBtn').textContent = btnText;
+    document.getElementById('confirmOkBtn').style.background = btnColor;
+    document.getElementById('confirmOkBtn').style.color = '#000';
+    document.getElementById('confirmOkBtn').style.border = 'none';
+    document.getElementById('confirmModal').style.display = 'flex';
+  }
+
+  function closeConfirm(){
+    document.getElementById('confirmModal').style.display = 'none';
+    confirmCallback = null;
+  }
+
+  function confirmOk(){
+    document.getElementById('confirmModal').style.display = 'none';
+    if(confirmCallback) confirmCallback();
+    confirmCallback = null;
+  }
 
   // ── Stats ─────────────────────────────────────────
   async function loadStats(){
@@ -256,35 +301,55 @@
 
   // ── Actions ───────────────────────────────────────
   async function approveStore(id, name){
-    if(!confirm(`Approve store "${name}"?`)) return;
-    await apiPut(`/api/admin/stores/${id}/approve`);
-    showToast('✓ ' + name + ' approved!');
-    loadPending();
-    loadStats();
+    showConfirm('✅', 'Approve Store', 
+      `Are you sure you want to approve "${name}"? The store will become visible to all buyers.`,
+      '✓ Approve', '#00ff88',
+      async () => {
+        await apiPut(`/api/admin/stores/${id}/approve`);
+        showToast('✓ ' + name + ' approved!');
+        loadPending();
+        loadStats();
+      }
+    );
   }
 
   async function rejectStore(id, name){
-    if(!confirm(`Reject store "${name}"? This cannot be undone.`)) return;
-    await apiPut(`/api/admin/stores/${id}/reject`);
-    showToast('Store rejected.');
-    loadPending();
-    loadStats();
+    showConfirm('❌', 'Reject Store',
+      `Are you sure you want to reject "${name}"? This action cannot be undone.`,
+      '✗ Reject', '#ff4466',
+      async () => {
+        await apiPut(`/api/admin/stores/${id}/reject`);
+        showToast('Store rejected.');
+        loadPending();
+        loadStats();
+      }
+    );
   }
 
   async function blockStore(id, name){
-    if(!confirm(`Block store "${name}"?\n\nThis will deactivate the store and hide it from buyers and search results.`)) return;
-    await apiPut(`/api/admin/stores/${id}/reject`);
-    showToast('🚫 ' + name + ' has been blocked.');
-    loadAllStores();
-    loadStats();
+    showConfirm('🚫', 'Block Store',
+      `Are you sure you want to block "${name}"? This will deactivate the store and hide it from buyers and search results.`,
+      '🚫 Block', '#ff4466',
+      async () => {
+        await apiPut(`/api/admin/stores/${id}/reject`);
+        showToast('🚫 ' + name + ' has been blocked.');
+        loadAllStores();
+        loadStats();
+      }
+    );
   }
 
   async function removeListing(id, title){
-    if(!confirm(`Remove listing "${title}"?`)) return;
-    await apiDelete(`/api/admin/listings/${id}`);
-    showToast('Listing removed.');
-    loadListings();
-    loadStats();
+    showConfirm('🗑️', 'Remove Listing',
+      `Are you sure you want to remove "${title}"? This listing will be permanently deleted.`,
+      '🗑️ Remove', '#ff4466',
+      async () => {
+        await apiDelete(`/api/admin/listings/${id}`);
+        showToast('Listing removed.');
+        loadListings();
+        loadStats();
+      }
+    );
   }
 
   async function reindex(){
@@ -303,10 +368,6 @@
     if(name === 'stores')   loadAllStores();
     if(name === 'listings') loadListings();
   }
-
-  // ── Init ──────────────────────────────────────────
-  loadStats();
-  loadPending();
 </script>
 </body>
 </html>

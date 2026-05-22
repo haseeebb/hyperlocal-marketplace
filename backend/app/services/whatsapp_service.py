@@ -156,7 +156,21 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             )
 
     elif step == "reg_name":
-        session["owner_name"] = text.title()
+        import re
+        if not re.match(r'^[a-zA-Z\s؀-ۿ]+$', text.strip()):
+            await send_message(sender,
+                "❌ Naam mein sirf huroof (letters) ho sakte hain.\n"
+                "Numbers ya special characters allowed nahi.\n\n"
+                "Dobara apna naam likhein:"
+            )
+            return
+        if len(text.strip()) < 3:
+            await send_message(sender,
+                "❌ Naam kam az kam 3 characters ka hona chahiye.\n"
+                "Dobara apna naam likhein:"
+            )
+            return
+        session["owner_name"] = text.strip().title()
         session["step"]       = "reg_store_name"
         await save_session(sender, session)
         await send_message(sender,
@@ -165,7 +179,20 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         )
 
     elif step == "reg_store_name":
-        session["store_name"] = text.title()
+        import re
+        if not re.match(r'^[a-zA-Z0-9\s؀-ۿ]+$', text.strip()):
+            await send_message(sender,
+                "❌ Store naam mein special characters allowed nahi.\n"
+                "Dobara store ka naam likhein:"
+            )
+            return
+        if len(text.strip()) < 3:
+            await send_message(sender,
+                "❌ Store naam kam az kam 3 characters ka hona chahiye.\n"
+                "Dobara store ka naam likhein:"
+            )
+            return
+        session["store_name"] = text.strip().title()
         session["step"]       = "reg_category"
         await save_session(sender, session)
         await send_message(sender,
@@ -185,19 +212,53 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         session["step"]     = "reg_city"
         await save_session(sender, session)
         await send_message(sender,
-            "Aap ka store Lahore ke kis area mein hai?\n\n"
-            "Misaal ke taur par:\n"
-            "• Gulberg\n"
-            "• DHA\n"
-            "• Johar Town\n"
-            "• Model Town\n"
-            "• Bahria Town\n"
-            "• Saddar\n\n"
-            "Apna area naam likhein:"
+            "Aap ka store Lahore ke kis area mein hai?\n"
+            "Number reply karein:\n\n"
+            "1️⃣ DHA (Defence)\n"
+            "2️⃣ Gulberg\n"
+            "3️⃣ Model Town\n"
+            "4️⃣ Johar Town\n"
+            "5️⃣ Township\n"
+            "6️⃣ Garden Town\n"
+            "7️⃣ Faisal Town\n"
+            "8️⃣ Cantt\n"
+            "9️⃣ Bahria Town\n"
+            "1️⃣0️⃣ Iqbal Town\n"
+            "1️⃣1️⃣ Wapda Town\n"
+            "1️⃣2️⃣ Valencia Town\n"
+            "1️⃣3️⃣ Askari\n"
+            "1️⃣4️⃣ Walled City\n"
+            "1️⃣5️⃣ Anarkali\n"
+            "1️⃣6️⃣ Mall Road\n"
+            "1️⃣7️⃣ Shadman\n"
+            "1️⃣8️⃣ Samanabad\n"
+            "1️⃣9️⃣ Shahdara\n"
+            "2️⃣0️⃣ Raiwind\n"
+            "2️⃣1️⃣ Thokar Niaz Baig\n"
+            "2️⃣2️⃣ Multan Road\n"
+            "2️⃣3️⃣ Ferozepur Road\n"
+            "2️⃣4️⃣ Wagah\n"
+            "2️⃣5️⃣ Ichhra\n"
+            "2️⃣6️⃣ Other"
         )
 
     elif step == "reg_city":
-        session["city"] = text.title()
+        areas = {
+            "1": "DHA (Defence)", "2": "Gulberg", "3": "Model Town",
+            "4": "Johar Town", "5": "Township", "6": "Garden Town",
+            "7": "Faisal Town", "8": "Cantt", "9": "Bahria Town",
+            "10": "Iqbal Town", "11": "Wapda Town", "12": "Valencia Town",
+            "13": "Askari", "14": "Walled City", "15": "Anarkali",
+            "16": "Mall Road", "17": "Shadman", "18": "Samanabad",
+            "19": "Shahdara", "20": "Raiwind", "21": "Thokar Niaz Baig",
+            "22": "Multan Road", "23": "Ferozepur Road", "24": "Wagah",
+            "25": "Ichhra", "26": "Other"
+        }
+        if text.strip() in areas:
+            session["city"] = areas[text.strip()]
+        else:
+            await send_message(sender, "Kripya 1 se 26 ke darmiyan number likhein.")
+            return
         session["step"] = "reg_password"
         await save_session(sender, session)
         await send_message(sender,

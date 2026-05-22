@@ -153,7 +153,7 @@ footer{border-top:1px solid var(--border);padding:24px;text-align:center;color:v
   .product-store{font-size:10px}
   .cats-grid{grid-template-columns:repeat(2,1fr)}
   .search-box input{font-size:13px;padding:10px 12px}
-  .nav-btn{padding:5px 10px;font-size:12px}
+  .nav-btn{padding:5px 10px;font-size:12px} 
 }
 
 @media(max-width:400px){

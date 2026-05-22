@@ -101,15 +101,11 @@
       <div id="buyerForm">
         <div class="form-group">
           <label class="form-label">Full Name *</label>
-          <input type="text" id="b-name" class="form-input" placeholder="e.g. Abdul Haseeb">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Email Address *</label>
-          <input type="email" id="b-email" class="form-input" placeholder="you@example.com">
+          <input type="text" id="b-name" class="form-input" placeholder="e.g. Abdul Haseeb" maxlength="50">
         </div>
         <div class="form-group">
           <label class="form-label">Phone Number *</label>
-          <input type="text" id="b-phone" class="form-input" placeholder="e.g. 03174443343">
+          <input type="text" id="b-phone" class="form-input" placeholder="e.g. 03001234567 or 923001234567" maxlength="13">
         </div>
         <div class="form-group">
           <label class="form-label">Address / Area in Lahore *</label>
@@ -158,11 +154,11 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Full Name *</label>
-            <input type="text" id="s-name" class="form-input" placeholder="Your full name">
+            <input type="text" id="s-name" class="form-input" placeholder="Your Full Name" maxlength="50">
           </div>
           <div class="form-group">
             <label class="form-label">Store Name *</label>
-            <input type="text" id="s-store" class="form-input" placeholder="e.g. Butt Heels">
+            <input type="text" id="s-store" class="form-input" placeholder="Store Name" maxlength="50">
           </div>
         </div>
         <div class="form-group">
@@ -191,7 +187,7 @@
           </div>
           <div class="form-group">
             <label class="form-label">WhatsApp Number *</label>
-            <input type="text" id="s-whatsapp" class="form-input" placeholder="923174443343">
+            <input type="text" id="s-whatsapp" class="form-input" placeholder="e.g. 03001234567 or 923001234567" maxlength="13">
           </div>
         </div>
         <div class="form-group">
@@ -302,21 +298,29 @@
   async function registerBuyer(){
     hideAlert('alertBox');
     const name    = document.getElementById('b-name').value.trim();
-    const email   = document.getElementById('b-email').value.trim();
     const phone   = document.getElementById('b-phone').value.trim();
     const address = document.getElementById('b-address').value.trim();
     const pass    = document.getElementById('b-pass').value;
     const pass2   = document.getElementById('b-pass2').value;
 
-    if(!name||!email||!phone||!address||!pass||!pass2){
+    if(!name||!phone||!address||!pass||!pass2){
       showAlert('alertBox','Please fill in all required fields.'); return;
     }
     if(pass !== pass2){ showAlert('alertBox','Passwords do not match.'); return; }
     if(pass.length < 6){ showAlert('alertBox','Password must be at least 6 characters.'); return; }
 
+    const nameRegex = /^[a-zA-Z\s؀-ۿ]+$/;
+    if(!nameRegex.test(name)){
+      showAlert('alertBox','Name cannot contain numbers or special characters.'); return;
+    }
+    const phoneRegex = /^(0[0-9]{10}|92[0-9]{10})$/;
+    if(!phoneRegex.test(phone.replace(/\s/g,''))){
+      showAlert('alertBox','Phone must be 11 digits starting with 0 (e.g. 03001234567) or 12 digits starting with 92 (e.g. 923001234567).'); return;
+    }
+
     try {
       const data = await apiPost('/api/auth/register-buyer',
-        { name, email, phone, address, password: pass, role: 'buyer' });
+        { name, phone, address, password: pass, role: 'buyer' });
       if(data.id || data.message || data.detail !== 'User already exists'){
         showSuccess('🎉','Account Created!',
           'Welcome to Find X, ' + name + '! You can now browse products and contact sellers on WhatsApp.');
@@ -377,6 +381,20 @@
     }
     if(pass !== pass2){ showAlert('alertBox','Passwords do not match.'); return; }
     if(pass.length < 6){ showAlert('alertBox','Password must be at least 6 characters.'); return; }
+
+    const nameRegex = /^[a-zA-Z\s؀-ۿ]+$/;
+    const phoneRegex = /^(0[0-9]{10}|92[0-9]{10})$/;
+    const storeNameRegex = /^[a-zA-Z0-9\s؀-ۿ]+$/;
+    if(!storeNameRegex.test(store)){
+      showAlert('alertBox','Store name cannot contain special characters.'); return;
+    }
+    if(!nameRegex.test(name)){
+      showAlert('alertBox','Name cannot contain numbers or special characters.'); return;
+    }
+    if(!phoneRegex.test(whatsapp.replace(/\s/g,''))){
+      showAlert('alertBox','Phone must start with 0 or 92 and be the correct length.'); return;
+    }
+
     if(!geoLat || !geoLng){
       showAlert('alertBox','Store location is required for nearest-store search. Please allow location access or enter coordinates manually.'); return;
     }

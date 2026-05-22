@@ -158,7 +158,7 @@ async def get_my_store(
                 break
 
     if not store:
-        raise HTTPException(status_code=404, detail="No store found")
+        raise HTTPException(status_code=404, detail=f"No store found for user {user_id}, phone {user.phone}")
 
     return {
         "id":                 str(store.id),

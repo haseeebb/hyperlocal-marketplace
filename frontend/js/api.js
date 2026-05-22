@@ -1,4 +1,4 @@
-const API = 'https://imagines-despair-smuggling.ngrok-free.dev';
+const API = 'http://localhost:8000';
 
 function getStarDisplay(rating) {
     const full = Math.round(rating);

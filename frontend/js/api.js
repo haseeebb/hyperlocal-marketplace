@@ -1,4 +1,7 @@
-const API = 'http://localhost:8000';
+const API = window.location.hostname === '127.0.0.1' ||
+            window.location.hostname === 'localhost'
+            ? 'http://localhost:8000'
+            : 'https://findx-backend-uaeq.onrender.com';
 
 function getStarDisplay(rating) {
     const full = Math.round(rating);

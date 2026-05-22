@@ -71,7 +71,6 @@
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:28px">
     <div class="stat-card"><div class="stat-val" id="s1">—</div><div class="stat-lbl">Products</div></div>
     <div class="stat-card"><div class="stat-val" id="s2">—</div><div class="stat-lbl">Store Status</div></div>
-    <div class="stat-card"><div class="stat-val" id="s3">—</div><div class="stat-lbl">Delivery</div></div>
     <div class="stat-card"><div class="stat-val" id="s4">—</div><div class="stat-lbl">Area</div></div>
   </div>
 
@@ -216,7 +215,6 @@
       ? '<span class="s-badge s-verified">✓ Verified</span>'
       : '<span class="s-badge s-pending">⏳ Pending</span>';
     document.getElementById('s2').textContent = store.is_verified ? '✓' : '⏳';
-    document.getElementById('s3').textContent = store.delivery_available ? 'ON' : 'OFF';
     document.getElementById('s4').textContent = store.city || 'Lahore';
   }
 
@@ -429,7 +427,7 @@
   function noStore(){
     document.getElementById('welcomeMsg').textContent = 'No store found';
     document.getElementById('storeBadge').innerHTML   = '<span class="s-badge s-pending">No Store</span>';
-    ['s1','s2','s3','s4'].forEach(id => document.getElementById(id).textContent='—');
+    ['s1','s2','s4'].forEach(id => document.getElementById(id).textContent='—');
     document.getElementById('productsGrid').innerHTML = `
       <div style="text-align:center;padding:48px;grid-column:1/-1">
         <div style="font-size:48px;margin-bottom:12px">🏪</div>

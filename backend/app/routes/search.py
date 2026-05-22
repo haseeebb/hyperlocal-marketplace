@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Query, Depends
 from typing import Optional
-import meilisearch, os
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, func
 from app.database import get_db
@@ -8,15 +7,6 @@ from app.models.models import Listing, Store, Review
 import uuid
 
 router = APIRouter()
-
-try:
-    client = meilisearch.Client(
-        os.getenv("MEILI_URL", "http://localhost:7700"),
-        os.getenv("MEILI_KEY", "masterkey123")
-    )
-    MEILI_AVAILABLE = True
-except Exception:
-    MEILI_AVAILABLE = False
 
 @router.get("/")
 async def search_listings(
@@ -28,28 +18,7 @@ async def search_listings(
     page: int = 1,
     db: AsyncSession = Depends(get_db)
 ):
-    # Try Meilisearch first
-    try:
-        filters = []
-        if category:
-            filters.append(f'category = "{category}"')
-        if min_price is not None:
-            filters.append(f"price >= {min_price}")
-        if max_price is not None:
-            filters.append(f"price <= {max_price}")
-        if city:
-            filters.append(f'city = "{city}"')
-
-        results = client.index("listings").search(q, {
-            "filter": " AND ".join(filters) if filters else None,
-            "limit": 20,
-            "offset": (page - 1) * 20
-        })
-        return results
-    except Exception:
-        pass
-
-    # Fallback: PostgreSQL search
+    # PostgreSQL search
     query = (
         select(
             Listing, Store,

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, Numeric, Text, DateTime, ForeignKey, Enum, Integer
+from sqlalchemy import Column, String, Boolean, Numeric, Text, DateTime, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, declarative_base
 import uuid, datetime, enum
@@ -21,7 +21,7 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     phone = Column(String(20), unique=True, nullable=False)
     name = Column(String(100))
-    role = Column(Enum(UserRole), default=UserRole.buyer)
+    role = Column(String(20), default="buyer")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     store = relationship("Store", back_populates="owner", uselist=False)
     hashed_password = Column(String(255), nullable=True)
@@ -32,7 +32,7 @@ class Store(Base):
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     name = Column(String(150), nullable=False)
     description = Column(Text)
-    category = Column(Enum(StoreCategory))
+    category = Column(String(50))
     city = Column(String(100))
     lat = Column(Numeric(9, 6))
     lng = Column(Numeric(9, 6))

@@ -199,7 +199,7 @@
   // ── Load dashboard ────────────────────────────────
   async function init(){
     try {
-      const res = await fetch('http://localhost:8000/api/stores/my',
+      const res = await fetch(`${API}/api/stores/my`,
         { headers:{ 'Authorization':'Bearer '+getToken() } });
       if(!res.ok) throw new Error();
       store = await res.json();

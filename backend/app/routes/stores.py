@@ -87,6 +87,34 @@ async def register_store(data: StoreCreate, db: AsyncSession = Depends(get_db)):
     db.add(store)
     await db.commit()
     return {"message": "Store submitted for review", "store_id": str(store.id)}
+# ── Debug endpoint ───────────────────────────────────
+@router.get("/test-my")
+async def test_my_store(
+    authorization: Optional[str] = Header(None),
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        if not authorization:
+            return {"error": "No auth header"}
+        token = authorization.split(" ")[1]
+        payload = verify_token(token)
+        user_id = payload.get("sub")
+        result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+        user = result.scalar_one_or_none()
+        if not user:
+            return {"error": "User not found", "user_id": user_id}
+        result2 = await db.execute(select(Store).where(Store.owner_id == user.id))
+        store = result2.scalar_one_or_none()
+        return {
+            "user_id": str(user.id),
+            "phone": user.phone,
+            "role": user.role,
+            "store_found": store is not None,
+            "store_name": store.name if store else None
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 # ── Get seller's own store (requires JWT) ────────────
 @router.get("/my")
 async def get_my_store(
@@ -164,7 +192,7 @@ async def get_my_store(
         "id":                 str(store.id),
         "name":               store.name,
         "description":        store.description,
-        "category":           store.category.value if store.category else None,
+        "category":           store.category or None,
         "city":               store.city,
         "lat":                float(store.lat) if store.lat else None,
         "lng":                float(store.lng) if store.lng else None,
@@ -190,7 +218,7 @@ async def get_store(store_id: str, db: AsyncSession = Depends(get_db)):
         "id":              str(store.id),
         "name":            store.name,
         "description":     store.description,
-        "category":        store.category.value if store.category else None,
+        "category":        store.category or None,
         "city":            store.city,
         "lat":             float(store.lat) if store.lat else None,
         "lng":             float(store.lng) if store.lng else None,

@@ -21,6 +21,8 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    allow_credentials=False,
 )
 app.include_router(auth.router,     prefix="/api/auth",     tags=["auth"])
 app.include_router(stores.router,   prefix="/api/stores",   tags=["stores"])

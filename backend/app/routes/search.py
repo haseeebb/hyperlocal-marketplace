@@ -65,7 +65,7 @@ async def search_listings(
         "store_id":           str(store.id),
         "whatsapp_number":    store.whatsapp_number,
         "city":               store.city or "",
-        "category":           store.category.value if store.category else "",
+        "category":           store.category if store.category else "",
         "delivery_available": listing.delivery_available,
         "lat":                float(store.lat) if store.lat else None,
         "lng":                float(store.lng) if store.lng else None,

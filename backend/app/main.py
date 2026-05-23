@@ -1,6 +1,5 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from app.routes import stores, listings, search, admin, auth, whatsapp, reviews
 
 app = FastAPI(
@@ -36,14 +35,3 @@ app.include_router(reviews.router,  prefix="/api/reviews", tags=["reviews"])
 @app.get("/")
 async def health():
     return {"status": "running"}
-
-@app.middleware("http")
-async def add_cors_headers(request: Request, call_next):
-    if request.method == "OPTIONS":
-        response = JSONResponse(content={})
-    else:
-        response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "*"
-    response.headers["Access-Control-Allow-Headers"] = "*"
-    return response

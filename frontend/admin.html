@@ -90,10 +90,7 @@
   <div id="panel-listings" style="display:none">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <h3 style="font-size:16px;font-weight:700">All Listings</h3>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-outline" style="font-size:12px;padding:6px 14px" onclick="reindex()">⚡ Reindex Search</button>
-        <button class="btn btn-outline" style="font-size:12px;padding:6px 14px" onclick="loadListings()">↻ Refresh</button>
-      </div>
+      <button class="btn btn-outline" style="font-size:12px;padding:6px 14px" onclick="loadListings()">↻ Refresh</button>
     </div>
     <div id="listingsList">
       <div style="color:var(--text2);text-align:center;padding:40px">Loading...</div>
@@ -350,12 +347,6 @@
         loadStats();
       }
     );
-  }
-
-  async function reindex(){
-    showToast('Reindexing...');
-    const d = await apiPost('/api/admin/reindex', {});
-    showToast('✓ Indexed ' + (d.indexed || 0) + ' listings');
   }
 
   // ── Tab switching ─────────────────────────────────

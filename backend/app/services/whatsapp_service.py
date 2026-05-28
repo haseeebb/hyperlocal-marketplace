@@ -74,7 +74,7 @@ async def get_active_store(sender: str):
         return result.scalar_one_or_none()
 
 # ── Main message handler ──────────────────────────────
-async def handle_message(sender: str, text: str, media_id: str = None):
+async def handle_message(sender: str, text: str, media_id: str = None, location: dict = None):
     session = await get_session(sender)
     step    = session.get("step", "idle")
 
@@ -259,13 +259,43 @@ async def handle_message(sender: str, text: str, media_id: str = None):
         else:
             await send_message(sender, "Kripya 1 se 26 ke darmiyan number likhein.")
             return
-        session["step"] = "reg_password"
+        session["step"] = "reg_location"
         await save_session(sender, session)
         await send_message(sender,
-            "Bas thoda aur! 🎉\n\n"
-            "Website login ke liye password set karein:\n"
-            "(kam az kam 6 characters)"
+            f"Zabardast! Area: *{session['city']}* ✅\n\n"
+            "Ab apni store ki exact location share karein 📍\n\n"
+            "Yeh kaise karein:\n"
+            "1️⃣ Neeche 📎 button dabayein\n"
+            "2️⃣ *Location* select karein\n"
+            "3️⃣ *Send Your Current Location* dabayein\n"
+            "   Ya map pe apni store pin karein\n"
+            "4️⃣ Send kar dein!\n\n"
+            "⚠️ Location zaroori hai taake buyers aapko GPS se dhoond sakein!"
         )
+
+    elif step == "reg_location":
+        if location:
+            session["lat"] = location.get("latitude")
+            session["lng"] = location.get("longitude")
+            session["step"] = "reg_password"
+            await save_session(sender, session)
+            await send_message(sender,
+                f"✅ Location mil gayi!\n"
+                f"📍 {session['lat']}, {session['lng']}\n\n"
+                "Bas thoda aur! 🎉\n\n"
+                "Website login ke liye password set karein:\n"
+                "(kam az kam 6 characters)"
+            )
+        else:
+            await send_message(sender,
+                "❌ Location pin nahi mili!\n\n"
+                "Kripya location PIN share karein:\n\n"
+                "1️⃣ Neeche 📎 button dabayein\n"
+                "2️⃣ *Location* select karein\n"
+                "3️⃣ *Send Your Current Location* dabayein\n"
+                "4️⃣ Send kar dein!\n\n"
+                "⚠️ Text se location accept nahi hogi!"
+            )
 
     elif step == "reg_password":
         if len(text.strip()) < 6:
@@ -330,8 +360,11 @@ async def handle_message(sender: str, text: str, media_id: str = None):
             store = Store(
                 owner_id=user.id,
                 name=session["store_name"],
+                description=session.get("description", ""),
                 category=session["category"],
                 city=session["city"],
+                lat=session.get("lat"),
+                lng=session.get("lng"),
                 whatsapp_number=sender,
                 is_verified=False
             )
@@ -386,7 +419,7 @@ async def handle_message(sender: str, text: str, media_id: str = None):
     # ══════════════════════════════════════
     elif text.strip() in ["1","2","3","4"] and step not in [
         "reg_start", "reg_name", "reg_store_name", "reg_category", "reg_city",
-        "reg_password", "reg_confirm",
+        "reg_location", "reg_password", "reg_confirm",
         "add_title", "add_price", "add_description", "add_image",
         "confirm_delete", "select_product_price", "enter_new_price"
     ]:

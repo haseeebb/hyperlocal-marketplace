@@ -34,13 +34,16 @@ async def receive_message(request: Request):
 
         text = ""
         media_id = None
+        location = None
 
         if msg_type == "text":
             text = message.get("text", {}).get("body", "").strip().lower()
         elif msg_type == "image":
             media_id = message.get("image", {}).get("id")
+        elif msg_type == "location":
+            location = message.get("location")
 
-        await handle_message(sender, text, media_id)
+        await handle_message(sender, text, media_id, location)
 
     except Exception as e:
         print(f"Webhook error: {e}")

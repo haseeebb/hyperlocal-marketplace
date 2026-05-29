@@ -76,10 +76,10 @@
     </div>
   </div>
 
-  <div style="display:flex;gap:16px;align-items:flex-start">
+  <div id="searchLayout" style="display:flex;gap:16px;align-items:flex-start">
 
     <!-- FILTER SIDEBAR -->
-    <div style="width:220px;flex-shrink:0">
+    <div id="filterPanel" style="width:220px;flex-shrink:0">
 
       <!-- Price filter -->
       <div class="filter-panel">
@@ -141,7 +141,10 @@
     <!-- RESULTS -->
     <div style="flex:1;min-width:0">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <h2 id="pageTitle" style="font-size:18px;font-weight:700">Search Results</h2>
+        <div style="display:flex;align-items:center;gap:10px">
+          <h2 id="pageTitle" style="font-size:18px;font-weight:700">Search Results</h2>
+          <button class="filter-toggle-btn" onclick="toggleFilter()" style="display:none;background:var(--bg3);border:1px solid var(--border2);color:var(--cyan);padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;gap:4px;align-items:center">⚙️ Filters</button>
+        </div>
         <span id="resultCount" style="font-size:13px;color:var(--text2)"></span>
       </div>
       <div class="products-grid" id="resultsGrid">
@@ -304,6 +307,13 @@
     document.querySelectorAll('.sort-opt').forEach(e => e.classList.remove('active'));
     document.getElementById('sort-nearest').classList.add('active');
     applyFilters();
+  }
+
+  function toggleFilter(){
+    const panel = document.getElementById('filterPanel');
+    const btn   = document.querySelector('.filter-toggle-btn');
+    panel.classList.toggle('open');
+    btn.textContent = panel.classList.contains('open') ? '✕ Close' : '⚙️ Filters';
   }
 
   document.getElementById('searchInput').addEventListener('keydown', e => {

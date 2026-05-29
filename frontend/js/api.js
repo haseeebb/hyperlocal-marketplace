@@ -116,7 +116,7 @@ function navHTML(){
           🛒<div class="cart-count" id="cartCount">${cart.length}</div>
         </a>` : ''}
       ${user
-        ? `<span style="font-size:13px;color:var(--text2);margin-right:4px">${user.name}</span>
+        : `<span class="nav-user-name" style="font-size:13px;color:var(--text2);margin-right:4px">${user.name}</span>
            ${(user.role === 'admin' || user.role === 'UserRole.admin')   ? `<a href="admin.html"  class="nav-btn">Admin Panel</a>`  : ''}
            ${(user.role === 'seller' || user.role === 'UserRole.seller') ? `<a href="seller.html" class="nav-btn">My Store</a>`     : ''}
            <button class="nav-btn" onclick="logout()">Logout</button>`

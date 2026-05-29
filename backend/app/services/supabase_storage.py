@@ -5,6 +5,9 @@ import uuid
 import httpx
 from fastapi import HTTPException
 
+# Module-level flag so we only check/create the bucket once per process startup
+_bucket_ensured: bool = False
+
 
 def _get_supabase_url() -> str:
     supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
@@ -35,6 +38,10 @@ def _build_headers(content_type: str | None = None) -> dict[str, str]:
 
 
 async def ensure_public_bucket_exists(client: httpx.AsyncClient) -> None:
+    global _bucket_ensured
+    if _bucket_ensured:
+        return
+
     bucket_name = _get_bucket_name()
     response = await client.get(
         f"{_get_supabase_url()}/storage/v1/bucket/{bucket_name}",
@@ -42,9 +49,11 @@ async def ensure_public_bucket_exists(client: httpx.AsyncClient) -> None:
     )
 
     if response.status_code == 200:
+        _bucket_ensured = True
         return
 
-    if response.status_code != 404:
+    # Supabase returns 400 or 404 when the bucket doesn't exist
+    if response.status_code not in {400, 404}:
         raise HTTPException(status_code=500, detail="Failed to inspect Supabase storage bucket")
 
     create_response = await client.post(
@@ -58,6 +67,8 @@ async def ensure_public_bucket_exists(client: httpx.AsyncClient) -> None:
     )
     if create_response.status_code not in {200, 201}:
         raise HTTPException(status_code=500, detail="Failed to create Supabase storage bucket")
+
+    _bucket_ensured = True
 
 
 def _infer_file_extension(content_type: str | None) -> str:

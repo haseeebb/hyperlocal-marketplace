@@ -367,15 +367,14 @@
     try {
       const data = await apiPost('/api/auth/register-buyer',
         { name, phone, address, password: pass, role: 'buyer' });
-      if(data.id || data.message || data.detail !== 'User already exists'){
+      if(data.id){
         showSuccess('🎉','Account Created!',
           'Welcome to Find X, ' + name + '! You can now browse products and contact sellers on WhatsApp.');
       } else {
-        showAlert('alertBox', data.detail || 'Registration failed.');
+        showAlert('alertBox', data.detail || 'Registration failed. Please try again.');
       }
     } catch(e){
-      showSuccess('🎉','Account Created!',
-        'Welcome to Find X, ' + name + '! You can now browse products and contact sellers on WhatsApp.');
+      showAlert('alertBox','Connection error. Make sure the backend is running.');
     }
   }
 

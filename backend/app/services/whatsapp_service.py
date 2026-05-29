@@ -150,7 +150,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             await clear_session(sender)
         else:
             await send_message(sender,
-                "Kripya reply karein:\n"
+                "Please reply karein:\n"
                 "1️⃣ — Naya Store Register Karen\n"
                 "2️⃣ — Store Status Check Karen"
             )
@@ -206,7 +206,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
     elif step == "reg_category":
         cats = {"1": "products", "2": "services", "3": "restaurant", "4": "hotel"}
         if text not in cats:
-            await send_message(sender, "Kripya 1, 2, 3, ya 4 likhein.")
+            await send_message(sender, "Please 1, 2, 3, ya 4 likhein.")
             return
         session["category"] = cats[text]
         session["step"]     = "reg_city"
@@ -257,7 +257,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
         if text.strip() in areas:
             session["city"] = areas[text.strip()]
         else:
-            await send_message(sender, "Kripya 1 se 26 ke darmiyan number likhein.")
+            await send_message(sender, "Please 1 se 26 ke darmiyan number likhein.")
             return
         session["step"] = "reg_location"
         await save_session(sender, session)
@@ -289,7 +289,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
         else:
             await send_message(sender,
                 "❌ Location pin nahi mili!\n\n"
-                "Kripya location PIN share karein:\n\n"
+                "Please location PIN share karein:\n\n"
                 "1️⃣ Neeche 📎 button dabayein\n"
                 "2️⃣ *Location* select karein\n"
                 "3️⃣ *Send Your Current Location* dabayein\n"

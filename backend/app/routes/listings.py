@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from app.models.models import Listing, Store
+from app.routes.auth import get_current_local_user
+from app.services.supabase_storage import upload_public_image
 from pydantic import BaseModel
 from typing import Optional
 import uuid
@@ -27,14 +29,59 @@ class ListingUpdate(BaseModel):
     delivery_available: Optional[bool] = None
 
 
-@router.post("/")
-async def create_listing(data: ListingCreate, db: AsyncSession = Depends(get_db)):
+async def get_owned_store(db: AsyncSession, user_id, store_id: str) -> Store:
     result = await db.execute(
-        select(Store).where(Store.id == uuid.UUID(data.store_id))
+        select(Store).where(
+            Store.id == uuid.UUID(store_id),
+            Store.owner_id == user_id,
+            Store.is_active == True,
+        )
     )
     store = result.scalar_one_or_none()
     if not store:
-        raise HTTPException(status_code=404, detail="Store not found")
+        raise HTTPException(status_code=403, detail="You do not own this store")
+    return store
+
+
+async def get_owned_listing(db: AsyncSession, user_id, listing_id: str) -> Listing:
+    result = await db.execute(select(Listing).where(Listing.id == uuid.UUID(listing_id)))
+    listing = result.scalar_one_or_none()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    await get_owned_store(db, user_id, str(listing.store_id))
+    return listing
+
+
+@router.post("/upload-image")
+async def upload_listing_image(
+    file: UploadFile = File(...),
+    authorization: Optional[str] = Header(None),
+    db: AsyncSession = Depends(get_db),
+):
+    await get_current_local_user(authorization, db)
+
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image uploads are supported")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Image file is empty")
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image must be 5MB or smaller")
+
+    image_url = await upload_public_image(content, file.content_type)
+    return {"image_url": image_url}
+
+
+@router.post("/")
+async def create_listing(
+    data: ListingCreate,
+    authorization: Optional[str] = Header(None),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_current_local_user(authorization, db)
+    await get_owned_store(db, user.id, data.store_id)
 
     listing = Listing(
         store_id=uuid.UUID(data.store_id),
@@ -79,14 +126,11 @@ async def get_listing(listing_id: str, db: AsyncSession = Depends(get_db)):
 async def update_listing(
     listing_id: str,
     data: ListingUpdate,
+    authorization: Optional[str] = Header(None),
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(
-        select(Listing).where(Listing.id == uuid.UUID(listing_id))
-    )
-    listing = result.scalar_one_or_none()
-    if not listing:
-        raise HTTPException(status_code=404, detail="Listing not found")
+    user = await get_current_local_user(authorization, db)
+    listing = await get_owned_listing(db, user.id, listing_id)
 
     if data.title is not None:
         listing.title = data.title
@@ -107,13 +151,13 @@ async def update_listing(
 
 
 @router.delete("/{listing_id}")
-async def delete_listing(listing_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Listing).where(Listing.id == uuid.UUID(listing_id))
-    )
-    listing = result.scalar_one_or_none()
-    if not listing:
-        raise HTTPException(status_code=404, detail="Listing not found")
+async def delete_listing(
+    listing_id: str,
+    authorization: Optional[str] = Header(None),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_current_local_user(authorization, db)
+    listing = await get_owned_listing(db, user.id, listing_id)
 
     listing.is_available = False
     await db.commit()

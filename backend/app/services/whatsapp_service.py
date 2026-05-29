@@ -1,10 +1,9 @@
 import httpx
 import os
-import cloudinary
-import cloudinary.uploader
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
 from app.models.models import Store, Listing, User
+from app.services.supabase_storage import upload_public_image
 from sqlalchemy import select
 
 # --- Config ---
@@ -15,12 +14,6 @@ sessions = {}
 
 def reset_session(phone: str):
     sessions[phone] = {"step": "idle"}
-
-cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET")
-)
 
 # ── WhatsApp helpers ──────────────────────────────────
 async def send_message(to: str, text: str):
@@ -59,8 +52,10 @@ async def download_and_upload_image(media_id: str) -> str:
             media_url,
             headers={"Authorization": f"Bearer {WHATSAPP_TOKEN}"}
         )
-        result = cloudinary.uploader.upload(img_response.content)
-        return result["secure_url"]
+        return await upload_public_image(
+            img_response.content,
+            img_response.headers.get("Content-Type"),
+        )
 
 # ── Helper: get active store for sender ───────────────
 async def get_active_store(sender: str):
@@ -340,22 +335,33 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
                 select(User).where(User.phone == sender)
             )
             user = result.scalar_one_or_none()
-
-            from passlib.context import CryptContext
-            pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            from app.services.supabase_auth import create_auth_user
 
             if not user:
-                user = User(
+                auth_user = await create_auth_user(
                     phone=sender,
+                    password=session["password"],
                     name=session["owner_name"],
                     role="seller",
-                    hashed_password=pwd_context.hash(session["password"])
+                )
+                user = User(
+                    phone=sender,
+                    supabase_user_id=auth_user["id"],
+                    name=session["owner_name"],
+                    role="seller",
                 )
                 db.add(user)
                 await db.flush()
             else:
                 user.role = "seller"
-                user.hashed_password = pwd_context.hash(session["password"])
+                if not user.supabase_user_id:
+                    auth_user = await create_auth_user(
+                        phone=sender,
+                        password=session["password"],
+                        name=user.name or session["owner_name"],
+                        role="seller",
+                    )
+                    user.supabase_user_id = auth_user["id"]
 
             store = Store(
                 owner_id=user.id,
@@ -377,7 +383,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             "Hamari team 24 ghante mein review karegi.\n\n"
             f"Website login details:\n"
             f"📱 Phone: {sender}\n"
-            f"🔑 Password: {session['password']}\n"
+            "🔑 Password: aap ka set kiya hua password\n"
             f"🌐 Login: https://hyperlocal-marketplace-zeta.vercel.app/login.html\n\n"
             "Approve hone ke baad *M* likhein store manage karne ke liye."
         )

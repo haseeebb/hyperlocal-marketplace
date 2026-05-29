@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, Numeric, Text, DateTime, ForeignKey, Integer
+from sqlalchemy import Column, String, Boolean, Numeric, Text, DateTime, ForeignKey, Integer, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, declarative_base
 import uuid, datetime, enum
@@ -20,8 +20,9 @@ class User(Base):
     __tablename__ = "users"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     phone = Column(String(20), unique=True, nullable=False)
+    supabase_user_id = Column(String(36), unique=True, nullable=True)
     name = Column(String(100))
-    role = Column(String(20), default="buyer")
+    role = Column(SAEnum('buyer', 'seller', 'admin', name='userrole', create_type=False), default='buyer')
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     store = relationship("Store", back_populates="owner", uselist=False)
     hashed_password = Column(String(255), nullable=True)
@@ -32,7 +33,7 @@ class Store(Base):
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     name = Column(String(150), nullable=False)
     description = Column(Text)
-    category = Column(String(50))
+    category = Column(SAEnum('products', 'services', 'restaurant', 'hotel', name='storecategory', create_type=False))
     city = Column(String(100))
     lat = Column(Numeric(9, 6))
     lng = Column(Numeric(9, 6))

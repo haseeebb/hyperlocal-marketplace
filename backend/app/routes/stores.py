@@ -3,7 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from app.models.models import Store, User
-from app.routes.auth import verify_token
+from app.routes.auth import get_current_local_user, get_local_user_by_phone
+from app.services.supabase_auth import create_auth_user, normalize_phone
 from pydantic import BaseModel
 from typing import Optional
 import uuid
@@ -30,11 +31,7 @@ class StoreCreate(BaseModel):
 async def register_store(data: StoreCreate, db: AsyncSession = Depends(get_db)):
     
     # Normalize whatsapp number to 92 format, strip non-digits
-    wa_phone = re.sub(r'\D', '', data.whatsapp_number.strip())
-    if wa_phone.startswith('0'):
-        wa_phone = '92' + wa_phone[1:]
-    elif not wa_phone.startswith('92'):
-        wa_phone = '92' + wa_phone
+    wa_phone = normalize_phone(data.whatsapp_number)
     phone_variants = [wa_phone, '0' + wa_phone[2:]]
 
     for p in phone_variants:
@@ -51,27 +48,37 @@ async def register_store(data: StoreCreate, db: AsyncSession = Depends(get_db)):
             )
 
     # Find or create user
-    result = await db.execute(select(User).where(User.phone == data.owner_phone))
-    user = result.scalar_one_or_none()
+    owner_phone = normalize_phone(data.owner_phone)
+    user = await get_local_user_by_phone(db, owner_phone)
 
     if not user:
-        from passlib.context import CryptContext
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        hashed = pwd_context.hash(data.password) if data.password else None
-        user = User(
-            phone=data.owner_phone,
+        if not data.password:
+            raise HTTPException(status_code=400, detail="Password is required to create a seller account")
+
+        auth_user = await create_auth_user(
+            phone=owner_phone,
+            password=data.password,
             name=data.owner_name,
             role="seller",
-            hashed_password=hashed
+        )
+        user = User(
+            phone=owner_phone,
+            supabase_user_id=auth_user["id"],
+            name=data.owner_name,
+            role="seller",
         )
         db.add(user)
         await db.flush()
     else:
-        if data.password and not user.hashed_password:
-            from passlib.context import CryptContext
-            pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-            user.hashed_password = pwd_context.hash(data.password)
         user.role = "seller"
+        if not user.supabase_user_id and data.password:
+            auth_user = await create_auth_user(
+                phone=user.phone,
+                password=data.password,
+                name=user.name or data.owner_name,
+                role="seller",
+            )
+            user.supabase_user_id = auth_user["id"]
 
     store = Store(
         owner_id=user.id,
@@ -94,15 +101,7 @@ async def test_my_store(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        if not authorization:
-            return {"error": "No auth header"}
-        token = authorization.split(" ")[1]
-        payload = verify_token(token)
-        user_id = payload.get("sub")
-        result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
-        user = result.scalar_one_or_none()
-        if not user:
-            return {"error": "User not found", "user_id": user_id}
+        user = await get_current_local_user(authorization, db)
         result2 = await db.execute(select(Store).where(Store.owner_id == user.id))
         store = result2.scalar_one_or_none()
         return {
@@ -121,21 +120,7 @@ async def get_my_store(
     authorization: Optional[str] = Header(None),
     db: AsyncSession = Depends(get_db)
 ):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Login required")
-
-    token = authorization.split(" ")[1]
-    payload = verify_token(token)
-    user_id = payload.get("sub")
-
-    # Find user by ID
-    result = await db.execute(
-        select(User).where(User.id == uuid.UUID(user_id))
-    )
-    user = result.scalar_one_or_none()
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = await get_current_local_user(authorization, db)
 
     # Try 1: find by owner_id + verified + active
     result = await db.execute(
@@ -186,7 +171,7 @@ async def get_my_store(
                 break
 
     if not store:
-        raise HTTPException(status_code=404, detail=f"No store found for user {user_id}, phone {user.phone}")
+        raise HTTPException(status_code=404, detail=f"No store found for user {user.id}, phone {user.phone}")
 
     return {
         "id":                 str(store.id),

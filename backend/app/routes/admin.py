@@ -3,21 +3,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.database import get_db
 from app.models.models import Store, Listing, User
-from app.routes.auth import verify_token
+from app.routes.auth import get_current_local_user
 from typing import Optional
 import uuid
 from datetime import datetime, timedelta
 
 router = APIRouter()
 
-async def get_admin(authorization: Optional[str] = Header(None)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing token")
-    token = authorization.split(" ")[1]
-    payload = verify_token(token)
-    if payload.get("role") != "admin":
+async def get_admin(
+    authorization: Optional[str] = Header(None),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_current_local_user(authorization, db)
+    if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
-    return payload
+    return user
 
 
 @router.get("/stores/pending")

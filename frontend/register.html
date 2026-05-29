@@ -460,14 +460,10 @@
         whatsapp_number: whatsapp,
         owner_phone: whatsapp,
         description: desc,
-        lat: geoLat, lng: geoLng
+        lat: geoLat, lng: geoLng,
+        password: pass
       });
       if(data.store_id || data.message){
-        // Also set password to make sure it's saved
-        await apiPost('/api/auth/set-password', {
-          phone: whatsapp,
-          new_password: pass
-        });
         showSuccess('✅','Store Submitted!',
           'Your store "' + store + '" has been submitted for review. You will be notified on WhatsApp within 24 hours.');
       } else {

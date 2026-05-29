@@ -188,10 +188,6 @@
     window.location.href = 'login.html';
   }
 
-  // ── Cloudinary config (update with your credentials) ──
-  const CLD_URL    = 'https://api.cloudinary.com/v1_1/dotybyiah/image/upload';
-  const CLD_PRESET = 'findx_uploads';
-
   let store    = null;
   let editId   = null;
   let newImgFile = null;
@@ -327,14 +323,17 @@
     reader.readAsDataURL(newImgFile);
   }
 
-  async function uploadToCloudinary(file){
-    if(CLD_URL.includes('YOUR_CLOUD_NAME')) return null;
+  async function uploadImage(file){
     const fd = new FormData();
     fd.append('file', file);
-    fd.append('upload_preset', CLD_PRESET);
-    const res  = await fetch(CLD_URL, { method:'POST', body:fd });
+    const res  = await fetch(API + '/api/listings/upload-image', {
+      method:'POST',
+      headers:{'Authorization':'Bearer '+getToken(),'ngrok-skip-browser-warning':'true'},
+      body:fd
+    });
     const data = await res.json();
-    return data.secure_url || null;
+    if(!res.ok) throw new Error(data.detail || 'Image upload failed');
+    return data.image_url || null;
   }
 
   async function saveProduct(){
@@ -356,7 +355,7 @@
     let imgUrl = document.getElementById('mImgUrl').value || '';
     if(newImgFile){
       showToast('Uploading image...');
-      const uploaded = await uploadToCloudinary(newImgFile);
+      const uploaded = await uploadImage(newImgFile);
       if(uploaded) imgUrl = uploaded;
     }
 

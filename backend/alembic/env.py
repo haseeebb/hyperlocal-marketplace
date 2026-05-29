@@ -30,6 +30,13 @@ target_metadata = Base.metadata
 # ... etc.
 
 
+def get_sync_database_url() -> str:
+    database_url = os.getenv("SYNC_DATABASE_URL") or os.getenv("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL or SYNC_DATABASE_URL must be configured")
+    return database_url.replace("+psycopg_async", "+psycopg").replace("+asyncpg", "+psycopg")
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -42,7 +49,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = database_url = os.getenv("DATABASE_URL").replace("asyncpg", "psycopg2")
+    url = get_sync_database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -61,9 +68,9 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    from sqlalchemy import create_engine
+    connectable = create_engine(
+        get_sync_database_url(),
         poolclass=pool.NullPool,
     )
 

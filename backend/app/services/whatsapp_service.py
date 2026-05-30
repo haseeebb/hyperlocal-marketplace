@@ -9,26 +9,14 @@ from sqlalchemy import select
 # --- Config ---
 WHATSAPP_TOKEN  = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_ID")
-
-# In-memory session storage
+# In-memory session storage (replaces Redis)
 sessions = {}
 
-# ── Session helpers ───────────────────────────────────
-async def get_session(phone: str) -> dict:
-    return sessions.get(phone, {"step": "idle"})
-
-async def save_session(phone: str, session: dict):
-    sessions[phone] = session
-
-async def clear_session(phone: str):
+def reset_session(phone: str):
     sessions[phone] = {"step": "idle"}
 
-# ══════════════════════════════════════════════════════
-# SEND HELPERS
-# ══════════════════════════════════════════════════════
-
+# ── WhatsApp helpers ──────────────────────────────────
 async def send_message(to: str, text: str):
-    """Send plain text message"""
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages",
@@ -40,78 +28,17 @@ async def send_message(to: str, text: str):
                 "text": {"body": text}
             }
         )
-        print(f"WhatsApp send text: {response.status_code}")
+        print(f"WhatsApp send: {response.status_code}")
 
+# ── Session helpers ───────────────────────────────────
+async def get_session(phone: str) -> dict:
+    return sessions.get(phone, {"step": "idle"})
 
-async def send_buttons(to: str, text: str, buttons: list):
-    """
-    Send interactive reply buttons (max 3)
-    buttons = [{"id": "btn_id", "title": "Button Text"}, ...]
-    """
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages",
-            headers={"Authorization": f"Bearer {WHATSAPP_TOKEN}"},
-            json={
-                "messaging_product": "whatsapp",
-                "to": to,
-                "type": "interactive",
-                "interactive": {
-                    "type": "button",
-                    "body": {"text": text},
-                    "action": {
-                        "buttons": [
-                            {"type": "reply", "reply": {"id": b["id"], "title": b["title"]}}
-                            for b in buttons
-                        ]
-                    }
-                }
-            }
-        )
-        print(f"WhatsApp send buttons: {response.status_code}")
-        if response.status_code != 200:
-            print(f"Button error: {response.text}")
-            # Fallback to text
-            fallback = text + "\n\n"
-            for i, b in enumerate(buttons, 1):
-                fallback += f"{i}. {b['title']}\n"
-            await send_message(to, fallback)
+async def save_session(phone: str, session: dict):
+    sessions[phone] = session
 
-
-async def send_list(to: str, text: str, button_text: str, sections: list):
-    """
-    Send interactive list message (max 10 items)
-    sections = [{"title": "Section", "rows": [{"id": "row_id", "title": "Row Title", "description": "optional"}]}]
-    """
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages",
-            headers={"Authorization": f"Bearer {WHATSAPP_TOKEN}"},
-            json={
-                "messaging_product": "whatsapp",
-                "to": to,
-                "type": "interactive",
-                "interactive": {
-                    "type": "list",
-                    "body": {"text": text},
-                    "action": {
-                        "button": button_text,
-                        "sections": sections
-                    }
-                }
-            }
-        )
-        print(f"WhatsApp send list: {response.status_code}")
-        if response.status_code != 200:
-            print(f"List error: {response.text}")
-            # Fallback to text
-            fallback = text + "\n\n"
-            for section in sections:
-                for i, row in enumerate(section["rows"], 1):
-                    fallback += f"{i}. {row['title']}\n"
-            fallback += "\nMeharbani kar ke number likhein."
-            await send_message(to, fallback)
-
+async def clear_session(phone: str):
+    sessions[phone] = {"step": "idle"}
 
 # ── Image upload helper ───────────────────────────────
 async def download_and_upload_image(media_id: str) -> str:
@@ -130,155 +57,36 @@ async def download_and_upload_image(media_id: str) -> str:
             img_response.headers.get("Content-Type"),
         )
 
+# ── Helper: get active store for sender ───────────────
+async def get_active_store(sender: str):
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Store).where(
+                Store.whatsapp_number == sender,
+                Store.is_active == True
+            )
+        )
+        return result.scalar_one_or_none()
 
-# ══════════════════════════════════════════════════════
-# MENU SENDERS
-# ══════════════════════════════════════════════════════
-
-async def send_welcome_menu(to: str):
-    """Send welcome message with register/status buttons"""
-    await send_buttons(
-        to,
-        "🏪 *Find X Marketplace*\n\nAssalam o Alaikum! 👋\nLahore ke hyperlocal marketplace mein khush amdeed!\n\nAap kya karna chahte hain?",
-        [
-            {"id": "btn_register", "title": "🏪 Store Register Karen"},
-            {"id": "btn_status",   "title": "📊 Store Status Check"},
-        ]
-    )
-
-
-async def send_store_menu(to: str, store_name: str):
-    """Send verified seller store management menu"""
-    await send_list(
-        to,
-        f"🏪 *{store_name}*\n✅ Verified Store\n\nAap kya karna chahte hain?\n_(Neeche button dabayein)_",
-        "📋 Options Dekhein",
-        [{
-            "title": "Store Management",
-            "rows": [
-                {"id": "menu_add",    "title": "➕ Product Add Karen",    "description": "Naya product list karein"},
-                {"id": "menu_view",   "title": "📦 Mere Products",        "description": "Apni listings dekhein"},
-                {"id": "menu_price",  "title": "✏️ Price Update Karen",   "description": "Product ka price badlein"},
-                {"id": "menu_delete", "title": "🗑️ Product Delete Karen", "description": "Listing hatayein"},
-            ]
-        }]
-    )
-
-
-async def send_main_menu_button(to: str):
-    """Send a simple main menu button"""
-    await send_buttons(
-        to,
-        "Aur kuch karna hai?",
-        [{"id": "btn_main_menu", "title": "🏠 Main Menu"}]
-    )
-
-
-async def send_cancel_back_buttons(to: str, text: str):
-    """Send message with cancel button"""
-    await send_buttons(
-        to,
-        text,
-        [{"id": "btn_cancel", "title": "❌ Cancel"}]
-    )
-
-
-# ══════════════════════════════════════════════════════
-# AREA LIST
-# ══════════════════════════════════════════════════════
-
-AREAS = {
-    "area_1":  "DHA (Defence)",
-    "area_2":  "Gulberg",
-    "area_3":  "Model Town",
-    "area_4":  "Johar Town",
-    "area_5":  "Township",
-    "area_6":  "Garden Town",
-    "area_7":  "Faisal Town",
-    "area_8":  "Cantt",
-    "area_9":  "Bahria Town",
-    "area_10": "Iqbal Town",
-    "area_11": "Wapda Town",
-    "area_12": "Valencia Town",
-    "area_13": "Askari",
-    "area_14": "Walled City",
-    "area_15": "Anarkali",
-    "area_16": "Mall Road",
-    "area_17": "Shadman",
-    "area_18": "Samanabad",
-    "area_19": "Shahdara",
-    "area_20": "Raiwind",
-    "area_21": "Thokar Niaz Baig",
-    "area_22": "Multan Road",
-    "area_23": "Ferozepur Road",
-    "area_24": "Wagah",
-    "area_25": "Ichhra",
-    "area_26": "Other",
-}
-
-async def send_area_list(to: str):
-    """Send area selection list"""
-    rows = [{"id": k, "title": v} for k, v in AREAS.items()]
-    await send_list(
-        to,
-        "Lahore mein aap ka store kis area mein hai?\nMeharbani kar ke apna area select karein:",
-        "📍 Area Select Karen",
-        [
-            {"title": "Lahore Areas", "rows": rows},
-        ]
-    )
-
-
-# ══════════════════════════════════════════════════════
-# MAIN MESSAGE HANDLER
-# ══════════════════════════════════════════════════════
-
-async def handle_message(sender: str, text: str, media_id: str = None, location: dict = None, interactive_id: str = None):
+# ── Main message handler ──────────────────────────────
+async def handle_message(sender: str, text: str, media_id: str = None, location: dict = None):
     session = await get_session(sender)
     step    = session.get("step", "idle")
 
-    # Use interactive button/list ID if available
-    if interactive_id:
-        text = interactive_id
+    print(f"Message from {sender}: text='{text}', media_id={media_id}, step={step}")
 
-    print(f"Message from {sender}: text='{text}', interactive='{interactive_id}', step={step}")
-    print(f"After processing: text='{text}', interactive_id='{interactive_id}', step='{step}'")
-
-    # ── GLOBAL RESETS ────────────────────────────────
-    if text.strip().lower() in ["m", "menu", "btn_main_menu"] or interactive_id == "btn_main_menu":
-        await clear_session(sender)
+    # GLOBAL M — resets everything
+    if text.strip().lower() in ["m", "menu"] and step not in ["idle"]:
+        sessions[sender] = {"step": "idle"}
         step = "idle"
         session = {"step": "idle"}
 
-    if text.strip().lower() in ["cancel", "btn_cancel", "c"] or interactive_id == "btn_cancel":
-        await clear_session(sender)
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(
-                select(Store).where(
-                    Store.whatsapp_number == sender,
-                    Store.is_active == True
-                )
-            )
-            existing = result.scalar_one_or_none()
+    # ══════════════════════════════════════
+    # REGISTRATION FLOW
+    # ══════════════════════════════════════
+    if text in ["register", "hello", "hi", "start", "مرحبا", "r"]:
 
-        if existing and existing.is_verified:
-            await send_store_menu(sender, existing.name)
-        else:
-            await send_buttons(
-                sender,
-                "❌ *Cancel Ho Gaya*",
-                [
-                    {"id": "btn_register",  "title": "🏪 Register Karen"},
-                    {"id": "btn_main_menu", "title": "🏠 Main Menu"},
-                ]
-            )
-        return
-
-    # ══════════════════════════════════════════════════
-    # WELCOME — hi/hello/register/r
-    # ══════════════════════════════════════════════════
-    if text.strip().lower() in ["hi", "hello", "start", "register", "r", "مرحبا"] or step == "idle" and not text:
-
+        # ── Check if store already exists for this number ──
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(Store).where(
@@ -289,149 +97,175 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             existing = result.scalar_one_or_none()
 
         if existing:
-            if existing.is_verified:
-                await send_store_menu(sender, existing.name)
-            else:
-                await send_buttons(
-                    sender,
-                    f"👋 Wapas khush amdeed!\n\n🏪 *{existing.name}*\n⏳ Status: Admin approval ka intezaar hai\n\nHamari team 24 ghante mein review karegi.",
-                    [{"id": "btn_main_menu", "title": "🏠 Main Menu"}]
-                )
+            await send_message(sender,
+                f"Wapas khush amdeed! 👋\n\n"
+                f"Aap ka store *{existing.name}* pehle se registered hai.\n\n"
+                f"Store manage karne ke liye *M* likhein."
+            )
             return
 
-        await send_welcome_menu(sender)
+        await send_message(sender,
+            "Find X Marketplace mein khush amdeed! 🎉\n\n"
+            "Apna store register karein ya status check karein:\n\n"
+            "1️⃣ — Naya Store Register Karen\n"
+            "2️⃣ — Store Status Check Karen\n\n"
+            "1 likhein registration shuru karne ke liye!"
+        )
         session = {"step": "reg_start"}
         await save_session(sender, session)
         return
 
-    # ══════════════════════════════════════════════════
-    # REGISTRATION FLOW
-    # ══════════════════════════════════════════════════
-
-    elif step == "reg_start" or text in ["btn_register", "btn_status"]:
-
-        if text == "btn_status":
+    elif step == "reg_start":
+        if text == "1":
+            session = {"step": "reg_name"}
+            await save_session(sender, session)
+            await send_message(sender,
+                "Zabardast! Store register karte hain! 🏪\n\n"
+                "Aap ka poora naam kya hai?"
+            )
+        elif text == "2":
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
                     select(Store).where(Store.whatsapp_number == sender)
                 )
                 store = result.scalar_one_or_none()
             if store:
-                status = "✅ Verified & Active" if store.is_verified and store.is_active else "⏳ Pending Approval"
-                await send_buttons(
-                    sender,
-                    f"🏪 *{store.name}*\n\n📊 Status: {status}\n📍 Area: {store.city or 'Set nahi'}\n\nHamari team jald review karegi!",
-                    [{"id": "btn_main_menu", "title": "🏠 Main Menu"}]
+                status = "✅ Verified and Active" if store.is_verified and store.is_active else "⏳ Pending Approval"
+                await send_message(sender,
+                    f"🏪 *{store.name}*\n\n"
+                    f"Status: {status}\n"
+                    f"Area: {store.city or 'Set nahi'}\n\n"
+                    "Store manage karne ke liye *M* likhein."
                 )
             else:
-                await send_welcome_menu(sender)
-                session = {"step": "reg_start"}
-                await save_session(sender, session)
+                await send_message(sender,
+                    "Aap ke number pe koi store nahi mila.\n\n"
+                    "Store banane ke liye *hi* likhein."
+                )
             await clear_session(sender)
-            return
-
-        # Start registration
-        session = {"step": "reg_name"}
-        await save_session(sender, session)
-        await send_cancel_back_buttons(
-            sender,
-            "🏪 *Store Registration*\n━━━━━━━━━━━━━━━\nStep 1/6 — Aap ka Naam\n━━━━━━━━━━━━━━━\n\nApna poora naam likhein:\n_(Sirf huroof — numbers ya symbols nahi)_"
-        )
+        else:
+            await send_message(sender,
+                "Please reply karein:\n"
+                "1️⃣ — Naya Store Register Karen\n"
+                "2️⃣ — Store Status Check Karen"
+            )
 
     elif step == "reg_name":
         import re
-        if not text or not re.match(r'^[a-zA-Z\s\u0600-\u06FF]+$', text.strip()):
-            await send_cancel_back_buttons(
-                sender,
-                "⚠️ *Galat Input!*\n\nNaam mein sirf huroof hon chahiye.\n✅ Misaal: Ahmed Ali\n❌ Nahi: 123abc\n\nMeharbani kar ke dobara apna naam likhein:"
+        if not re.match(r'^[a-zA-Z\s؀-ۿ]+$', text.strip()):
+            await send_message(sender,
+                "❌ Naam mein sirf huroof (letters) ho sakte hain.\n"
+                "Numbers ya special characters allowed nahi.\n\n"
+                "Dobara apna naam likhein:"
             )
             return
         if len(text.strip()) < 3:
-            await send_cancel_back_buttons(
-                sender,
-                "⚠️ Naam kam az kam 3 characters ka hona chahiye.\n\nDobara apna naam likhein:"
+            await send_message(sender,
+                "❌ Naam kam az kam 3 characters ka hona chahiye.\n"
+                "Dobara apna naam likhein:"
             )
             return
         session["owner_name"] = text.strip().title()
         session["step"]       = "reg_store_name"
         await save_session(sender, session)
-        await send_cancel_back_buttons(
-            sender,
-            f"🏪 *Store Registration*\n━━━━━━━━━━━━━━━\nStep 2/6 — Store ka Naam\n━━━━━━━━━━━━━━━\n\n{session['owner_name']}, aap se mil ke khushi hui! 👋\n\nApne store ka naam likhein:\n_(Huroof aur numbers allowed hain)_"
+        await send_message(sender,
+            f"Khushi hui milke, {session['owner_name']}! 👋\n\n"
+            "Aap ke store ka naam kya hai?"
         )
 
     elif step == "reg_store_name":
         import re
-        if not text or not re.match(r'^[a-zA-Z0-9\s\u0600-\u06FF]+$', text.strip()):
-            await send_cancel_back_buttons(
-                sender,
-                "⚠️ *Galat Input!*\n\nStore naam mein special characters nahi hon chahiye.\n✅ Misaal: Ahmed Store\n❌ Nahi: Ahmed@Store!\n\nMeharbani kar ke dobara store ka naam likhein:"
+        if not re.match(r'^[a-zA-Z0-9\s؀-ۿ]+$', text.strip()):
+            await send_message(sender,
+                "❌ Store naam mein special characters allowed nahi.\n"
+                "Dobara store ka naam likhein:"
             )
             return
         if len(text.strip()) < 3:
-            await send_cancel_back_buttons(
-                sender,
-                "⚠️ Store naam kam az kam 3 characters ka hona chahiye.\n\nDobara store ka naam likhein:"
+            await send_message(sender,
+                "❌ Store naam kam az kam 3 characters ka hona chahiye.\n"
+                "Dobara store ka naam likhein:"
             )
             return
         session["store_name"] = text.strip().title()
         session["step"]       = "reg_category"
         await save_session(sender, session)
-        await send_list(
-            sender,
-            f"🏪 *Store Registration*\n━━━━━━━━━━━━━━━\nStep 3/6 — Category\n━━━━━━━━━━━━━━━\n\n✅ Store: *{session['store_name']}*\n\nAap ka store kis qisam ka hai?",
-            "🏪 Category Select Karen",
-            [{"title": "Categories", "rows": [
-                {"id": "cat_products",   "title": "📦 Products",    "description": "Koi bhi product bechein"},
-                {"id": "cat_services",   "title": "🔧 Services",    "description": "Services provide karein"},
-                {"id": "cat_restaurant", "title": "🍽️ Restaurant",  "description": "Khana bechein"},
-                {"id": "cat_hotel",      "title": "🏨 Hotel",       "description": "Rooms/accommodation"},
-            ]}]
+        await send_message(sender,
+            "Aap ka store kis qisam ka hai? Number reply karein:\n\n"
+            "1️⃣ Products\n"
+            "2️⃣ Services\n"
+            "3️⃣ Restaurant\n"
+            "4️⃣ Hotel"
         )
 
     elif step == "reg_category":
-        cats = {
-            "cat_products":   "products",
-            "cat_services":   "services",
-            "cat_restaurant": "restaurant",
-            "cat_hotel":      "hotel",
-            # Text fallback
-            "1": "products", "2": "services", "3": "restaurant", "4": "hotel",
-        }
+        cats = {"1": "products", "2": "services", "3": "restaurant", "4": "hotel"}
         if text not in cats:
-            await send_list(
-                sender,
-                "⚠️ Meharbani kar ke list mein se category select karein!",
-                "🏪 Category Select Karen",
-                [{"title": "Categories", "rows": [
-                    {"id": "cat_products",   "title": "📦 Products"},
-                    {"id": "cat_services",   "title": "🔧 Services"},
-                    {"id": "cat_restaurant", "title": "🍽️ Restaurant"},
-                    {"id": "cat_hotel",      "title": "🏨 Hotel"},
-                ]}]
-            )
+            await send_message(sender, "Please 1, 2, 3, ya 4 likhein.")
             return
         session["category"] = cats[text]
         session["step"]     = "reg_city"
         await save_session(sender, session)
-        await send_area_list(sender)
+        await send_message(sender,
+            "Aap ka store Lahore ke kis area mein hai?\n"
+            "Number reply karein:\n\n"
+            "1️⃣ DHA (Defence)\n"
+            "2️⃣ Gulberg\n"
+            "3️⃣ Model Town\n"
+            "4️⃣ Johar Town\n"
+            "5️⃣ Township\n"
+            "6️⃣ Garden Town\n"
+            "7️⃣ Faisal Town\n"
+            "8️⃣ Cantt\n"
+            "9️⃣ Bahria Town\n"
+            "1️⃣0️⃣ Iqbal Town\n"
+            "1️⃣1️⃣ Wapda Town\n"
+            "1️⃣2️⃣ Valencia Town\n"
+            "1️⃣3️⃣ Askari\n"
+            "1️⃣4️⃣ Walled City\n"
+            "1️⃣5️⃣ Anarkali\n"
+            "1️⃣6️⃣ Mall Road\n"
+            "1️⃣7️⃣ Shadman\n"
+            "1️⃣8️⃣ Samanabad\n"
+            "1️⃣9️⃣ Shahdara\n"
+            "2️⃣0️⃣ Raiwind\n"
+            "2️⃣1️⃣ Thokar Niaz Baig\n"
+            "2️⃣2️⃣ Multan Road\n"
+            "2️⃣3️⃣ Ferozepur Road\n"
+            "2️⃣4️⃣ Wagah\n"
+            "2️⃣5️⃣ Ichhra\n"
+            "2️⃣6️⃣ Other"
+        )
 
     elif step == "reg_city":
-        if text not in AREAS and text not in [str(i) for i in range(1, 27)]:
-            await send_area_list(sender)
-            return
-        # Handle both button ID and number fallback
-        if text in AREAS:
-            session["city"] = AREAS[text]
+        areas = {
+            "1": "DHA (Defence)", "2": "Gulberg", "3": "Model Town",
+            "4": "Johar Town", "5": "Township", "6": "Garden Town",
+            "7": "Faisal Town", "8": "Cantt", "9": "Bahria Town",
+            "10": "Iqbal Town", "11": "Wapda Town", "12": "Valencia Town",
+            "13": "Askari", "14": "Walled City", "15": "Anarkali",
+            "16": "Mall Road", "17": "Shadman", "18": "Samanabad",
+            "19": "Shahdara", "20": "Raiwind", "21": "Thokar Niaz Baig",
+            "22": "Multan Road", "23": "Ferozepur Road", "24": "Wagah",
+            "25": "Ichhra", "26": "Other"
+        }
+        if text.strip() in areas:
+            session["city"] = areas[text.strip()]
         else:
-            area_list = list(AREAS.values())
-            session["city"] = area_list[int(text) - 1]
-
+            await send_message(sender, "Please 1 se 26 ke darmiyan number likhein.")
+            return
         session["step"] = "reg_location"
         await save_session(sender, session)
-        await send_cancel_back_buttons(
-            sender,
-            f"🏪 *Store Registration*\n━━━━━━━━━━━━━━━\nStep 5/6 — Location 📍\n━━━━━━━━━━━━━━━\n\n✅ Area: *{session['city']}*\n\nAb apni store ki exact location share karein taake buyers GPS se aapko dhoond sakein! 🗺️\n\nYeh kaise karein:\n1️⃣ Neeche 📎 button dabayein\n2️⃣ *Location* select karein\n3️⃣ *Send Your Current Location* dabayein\n   Ya map pe apni store pin karein\n4️⃣ Send kar dein!\n\n⚠️ Location zaroori hai!"
+        await send_message(sender,
+            f"Zabardast! Area: *{session['city']}* ✅\n\n"
+            "Ab apni store ki exact location share karein 📍\n\n"
+            "Yeh kaise karein:\n"
+            "1️⃣ Neeche 📎 button dabayein\n"
+            "2️⃣ *Location* select karein\n"
+            "3️⃣ *Send Your Current Location* dabayein\n"
+            "   Ya map pe apni store pin karein\n"
+            "4️⃣ Send kar dein!\n\n"
+            "⚠️ Location zaroori hai taake buyers aapko GPS se dhoond sakein!"
         )
 
     elif step == "reg_location":
@@ -440,43 +274,48 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             session["lng"] = location.get("longitude")
             session["step"] = "reg_password"
             await save_session(sender, session)
-            await send_cancel_back_buttons(
-                sender,
-                f"🏪 *Store Registration*\n━━━━━━━━━━━━━━━\nStep 6/6 — Password\n━━━━━━━━━━━━━━━\n\n✅ Location mil gayi! 📍\n\nBas thoda aur! 🎉\n\nWebsite login ke liye password set karein:\n⚠️ Kam az kam 6 characters"
+            await send_message(sender,
+                f"✅ Location mil gayi!\n"
+                f"📍 {session['lat']}, {session['lng']}\n\n"
+                "Bas thoda aur! 🎉\n\n"
+                "Website login ke liye password set karein:\n"
+                "(kam az kam 6 characters)"
             )
         else:
-            await send_cancel_back_buttons(
-                sender,
-                "⚠️ *Location Pin Nahi Mili!*\n\nMeharbani kar ke 📍 location PIN share karein.\nText se location accept nahi hogi!\n\n📎 → Location → Send Current Location"
+            await send_message(sender,
+                "❌ Location pin nahi mili!\n\n"
+                "Please location PIN share karein:\n\n"
+                "1️⃣ Neeche 📎 button dabayein\n"
+                "2️⃣ *Location* select karein\n"
+                "3️⃣ *Send Your Current Location* dabayein\n"
+                "4️⃣ Send kar dein!\n\n"
+                "⚠️ Text se location accept nahi hogi!"
             )
 
     elif step == "reg_password":
         if len(text.strip()) < 6:
-            await send_cancel_back_buttons(
-                sender,
-                "⚠️ *Password Bohat Chota Hai!*\n\nKam az kam 6 characters ka hona chahiye.\n\nMeharbani kar ke dobara password likhein:"
-            )
+            await send_message(sender, "Password kam az kam 6 characters ka hona chahiye. Dobara likhein.")
             return
         session["password"] = text.strip()
         session["step"] = "reg_confirm"
         await save_session(sender, session)
-        await send_cancel_back_buttons(
-            sender,
-            "Password confirm karein:\nDobara same password likhein:"
+        await send_message(sender,
+            "Password confirm karne ke liye dobara likhein:"
         )
 
     elif step == "reg_confirm":
         if text.strip() != session.get("password"):
-            await send_cancel_back_buttons(
-                sender,
-                "⚠️ *Password Match Nahi Hua!*\n\nDobara pehla password likhein:"
+            await send_message(sender,
+                "❌ Password match nahi hua. Dobara enter karein:"
             )
             session["step"] = "reg_password"
             await save_session(sender, session)
             return
 
-        # Save everything
+        # Now save everything including password
         async with AsyncSessionLocal() as db:
+
+            # ── Double-check uniqueness before saving ──
             check = await db.execute(
                 select(Store).where(
                     Store.whatsapp_number == sender,
@@ -485,30 +324,44 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             )
             if check.scalar_one_or_none():
                 await clear_session(sender)
-                await send_message(
-                    sender,
-                    "❌ Is number pe pehle se ek store registered hai.\n\nApna store manage karne ke liye *M* likhein."
+                await send_message(sender,
+                    "❌ Is number pe pehle se ek store registered hai.\n\n"
+                    "Apna store manage karne ke liye *M* likhein."
                 )
                 return
 
-            result = await db.execute(select(User).where(User.phone == sender))
+            # Find or create user
+            result = await db.execute(
+                select(User).where(User.phone == sender)
+            )
             user = result.scalar_one_or_none()
-
-            from passlib.context import CryptContext
-            pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            from app.services.supabase_auth import create_auth_user
 
             if not user:
-                user = User(
+                auth_user = await create_auth_user(
                     phone=sender,
+                    password=session["password"],
                     name=session["owner_name"],
                     role="seller",
-                    hashed_password=pwd_context.hash(session["password"])
+                )
+                user = User(
+                    phone=sender,
+                    supabase_user_id=auth_user["id"],
+                    name=session["owner_name"],
+                    role="seller",
                 )
                 db.add(user)
                 await db.flush()
             else:
                 user.role = "seller"
-                user.hashed_password = pwd_context.hash(session["password"])
+                if not user.supabase_user_id:
+                    auth_user = await create_auth_user(
+                        phone=sender,
+                        password=session["password"],
+                        name=user.name or session["owner_name"],
+                        role="seller",
+                    )
+                    user.supabase_user_id = auth_user["id"]
 
             store = Store(
                 owner_id=user.id,
@@ -525,17 +378,20 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             await db.commit()
 
         await clear_session(sender)
-        await send_buttons(
-            sender,
-            f"✅ *Store Submit Ho Gaya!*\n━━━━━━━━━━━━━━━\n🏪 {session['store_name']}\n📍 {session['city']}\n\nHamari team 24 ghante mein review karegi!\n\n🌐 Website Login:\n📱 Phone: {sender}\n🔑 Password: aap ka set kiya hua\n🔗 hyperlocal-marketplace-zeta.vercel.app",
-            [{"id": "btn_main_menu", "title": "🏠 Main Menu"}]
+        await send_message(sender,
+            f"✅ Aap ka store *{session['store_name']}* submit ho gaya!\n\n"
+            "Hamari team 24 ghante mein review karegi.\n\n"
+            f"Website login details:\n"
+            f"📱 Phone: {sender}\n"
+            "🔑 Password: aap ka set kiya hua password\n"
+            f"🌐 Login: https://hyperlocal-marketplace-zeta.vercel.app/login.html\n\n"
+            "Approve hone ke baad *M* likhein store manage karne ke liye."
         )
 
-    # ══════════════════════════════════════════════════
-    # MAIN MENU — M / menu
-    # ══════════════════════════════════════════════════
-
-    elif text.strip().lower() in ["m", "menu", "btn_main_menu"]:
+    # ══════════════════════════════════════
+    # MAIN MENU
+    # ══════════════════════════════════════
+    elif text in ["menu", "m"]:
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(Store).where(
@@ -547,20 +403,44 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             store = result.scalar_one_or_none()
 
         if not store:
-            await send_buttons(
-                sender,
-                "⚠️ Aap ka store abhi verify nahi hua.\nAdmin approval ka intezaar karein.\n\nAgar registered nahi hain toh hi likhein.",
-                [{"id": "btn_register", "title": "🏪 Register Karen"}]
+            await send_message(sender,
+                "⚠️ Aap ka store abhi verify nahi hua.\n"
+                "Admin approval ka intezaar karein.\n\n"
+                "Agar registered nahi hain toh *hi* likhein."
             )
             return
 
-        await send_store_menu(sender, store.name)
+        await send_message(sender,
+            f"🏪 *{store.name}* — Store Menu\n\n"
+            "Reply with a number:\n\n"
+            "1️⃣ — Add Product\n"
+            "2️⃣ — My Products\n"
+            "3️⃣ — Update Price\n"
+            "4️⃣ — Delete Product\n\n"
+            "Or type the command name directly."
+        )
 
-    # ══════════════════════════════════════════════════
+    # ══════════════════════════════════════
+    # NUMBER SHORTCUTS FROM MENU
+    # ══════════════════════════════════════
+    elif text.strip() in ["1","2","3","4"] and step not in [
+        "reg_start", "reg_name", "reg_store_name", "reg_category", "reg_city",
+        "reg_location", "reg_password", "reg_confirm",
+        "add_title", "add_price", "add_description", "add_image",
+        "confirm_delete", "select_product_price", "enter_new_price"
+    ]:
+        shortcuts = {
+            "1": "add product",
+            "2": "my products",
+            "3": "update price",
+            "4": "delete product",
+        }
+        await handle_message(sender, shortcuts[text.strip()], media_id)
+
+    # ══════════════════════════════════════
     # ADD PRODUCT FLOW
-    # ══════════════════════════════════════════════════
-
-    elif text in ["menu_add", "add product"] or "product add" in text.lower():
+    # ══════════════════════════════════════
+    elif text == "add product":
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(Store).where(
@@ -572,85 +452,61 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             store = result.scalar_one_or_none()
 
         if not store:
-            await send_message(sender, "⚠️ Aap ka store verify nahi hua. Admin approval ka intezaar karein.")
+            await send_message(sender,
+                "⚠️ Aap ka store abhi verify nahi hua.\n"
+                "Products add karne se pehle admin approval ka intezaar karein."
+            )
             return
 
         session = {"step": "add_title"}
         await save_session(sender, session)
-        await send_cancel_back_buttons(
-            sender,
-            "➕ *Product Add Karen*\n━━━━━━━━━━━━━━━\nStep 1/4 — Product Naam\n━━━━━━━━━━━━━━━\n\nProduct ya service ka naam likhein:"
-        )
+        await send_message(sender, "Product ya service ka naam kya hai?\n\n_(Wapas jane ke liye M likhein)_")
 
     elif step == "add_title":
-        if not text or len(text.strip()) < 2:
-            await send_cancel_back_buttons(
-                sender,
-                "⚠️ Naam zaroori hai!\n\nMeharbani kar ke product ka naam likhein:"
-            )
-            return
-        session["title"] = text.strip().title()
+        session["title"] = text.title()
         session["step"]  = "add_price"
         await save_session(sender, session)
-        await send_cancel_back_buttons(
-            sender,
-            f"➕ *Product Add Karen*\n━━━━━━━━━━━━━━━\nStep 2/4 — Price\n━━━━━━━━━━━━━━━\n\n✅ Product: *{session['title']}*\n\nPKR mein price likhein:\n_(Sirf number — misaal: 850)_"
+        await send_message(sender,
+            f"Theek hai: *{session['title']}* ✅\n\n"
+            "Price kya hai? (sirf number, misaal: 500)"
         )
 
     elif step == "add_price":
         try:
             price = float(text.replace(",", "").replace("rs", "").replace("pkr", "").strip())
-            if price <= 0:
-                raise ValueError
             session["price"] = price
         except:
-            await send_cancel_back_buttons(
-                sender,
-                "⚠️ *Galat Input!*\n\nSirf number likhein.\n✅ Misaal: 850\n❌ Nahi: PKR850 ya 850rs\n\nMeharbani kar ke dobara price likhein:"
-            )
+            await send_message(sender, "Sirf number likhein. Misaal: 500 ya 9.99")
             return
         session["step"] = "add_description"
         await save_session(sender, session)
-        await send_buttons(
-            sender,
-            f"➕ *Product Add Karen*\n━━━━━━━━━━━━━━━\nStep 3/4 — Description\n━━━━━━━━━━━━━━━\n\n✅ Price: PKR {int(price)}\n\nMukhtasar description likhein:",
-            [
-                {"id": "skip_desc",  "title": "⏭️ Skip"},
-                {"id": "btn_cancel", "title": "❌ Cancel"},
-            ]
+        await send_message(sender,
+            "Mukhtasar description likhein.\n"
+            "(ya *skip* likhein chorne ke liye)"
         )
 
     elif step == "add_description":
-        session["description"] = "" if text in ["skip", "skip_desc"] else text
+        session["description"] = "" if text == "skip" else text
         session["step"]        = "add_image"
         await save_session(sender, session)
-        await send_buttons(
-            sender,
-            "➕ *Product Add Karen*\n━━━━━━━━━━━━━━━\nStep 4/4 — Photo 📸\n━━━━━━━━━━━━━━━\n\nProduct ki photo bhejein:",
-            [
-                {"id": "skip_image", "title": "⏭️ Skip"},
-                {"id": "btn_cancel", "title": "❌ Cancel"},
-            ]
+        await send_message(sender,
+            "Product ki photo bhejein 📸\n"
+            "(ya *skip* likhein chorne ke liye)"
         )
 
     elif step == "add_image":
         image_url = None
+
         if media_id:
             try:
                 image_url = await download_and_upload_image(media_id)
             except Exception as e:
                 print(f"Image upload error: {e}")
-        elif text in ["skip", "skip_image"]:
+                await send_message(sender, "Image upload failed. Saving without image.")
+        elif text == "skip":
             pass
         else:
-            await send_buttons(
-                sender,
-                "⚠️ Photo nahi mili!\nMeharbani kar ke image bhejein ya skip karein.",
-                [
-                    {"id": "skip_image", "title": "⏭️ Skip"},
-                    {"id": "btn_cancel", "title": "❌ Cancel"},
-                ]
-            )
+            await send_message(sender, "Photo bhejein ya *skip* likhein.")
             return
 
         async with AsyncSessionLocal() as db:
@@ -663,7 +519,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             )
             store = result.scalar_one_or_none()
             if not store:
-                await send_message(sender, "Store nahi mila.")
+                await send_message(sender, "Store not found or not verified.")
                 await clear_session(sender)
                 return
 
@@ -678,23 +534,18 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             )
             db.add(listing)
             await db.commit()
+            await db.refresh(listing)
 
         await clear_session(sender)
-        await send_buttons(
-            sender,
-            f"✅ *Product Add Ho Gaya!*\n━━━━━━━━━━━━━━━\n🍽️ {session['title']}\n💰 PKR {int(session['price'])}\n\nAur kya karna hai?",
-            [
-                {"id": "menu_add",    "title": "➕ Aur Add Karen"},
-                {"id": "menu_view",   "title": "📦 Products Dekhein"},
-                {"id": "btn_main_menu", "title": "🏠 Main Menu"},
-            ]
+        await send_message(sender,
+            f"✅ *{session['title']}* successfully list ho gaya!\n\n"
+            "Aur options ke liye *M* likhein."
         )
 
-    # ══════════════════════════════════════════════════
+    # ══════════════════════════════════════
     # VIEW PRODUCTS
-    # ══════════════════════════════════════════════════
-
-    elif text in ["menu_view", "my products"] or "mere products" in text.lower():
+    # ══════════════════════════════════════
+    elif text == "my products":
         async with AsyncSessionLocal() as db:
             store_result = await db.execute(
                 select(Store).where(
@@ -704,7 +555,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             )
             store = store_result.scalar_one_or_none()
             if not store:
-                await send_message(sender, "Koi store nahi mila. *hi* likhein.")
+                await send_message(sender, "Koi store nahi mila. Store banane ke liye *hi* likhein.")
                 return
 
             listings_result = await db.execute(
@@ -716,34 +567,22 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             items = listings_result.scalars().all()
 
         if not items:
-            await send_buttons(
-                sender,
-                "📦 Aap ka koi active product nahi hai.",
-                [
-                    {"id": "menu_add",      "title": "➕ Product Add Karen"},
-                    {"id": "btn_main_menu", "title": "🏠 Main Menu"},
-                ]
+            await send_message(sender,
+                "Aap ka koi active listing nahi hai.\n"
+                "Product add karne ke liye *1* likhein."
             )
             return
 
-        msg = f"📦 *Aap ke Products ({len(items)}):*\n━━━━━━━━━━━━━━━\n\n"
+        msg = f"📦 *Aap ke products ({len(items)}):*\n\n"
         for i, item in enumerate(items, 1):
-            msg += f"{i}. {item.title} — PKR {int(item.price)}\n"
+            msg += f"{i}. {item.title} — {item.price} {item.currency}\n"
+        msg += "\nAur options ke liye *M* likhein."
+        await send_message(sender, msg)
 
-        await send_buttons(
-            sender,
-            msg,
-            [
-                {"id": "menu_add",      "title": "➕ Product Add Karen"},
-                {"id": "btn_main_menu", "title": "🏠 Main Menu"},
-            ]
-        )
-
-    # ══════════════════════════════════════════════════
+    # ══════════════════════════════════════
     # DELETE PRODUCT
-    # ══════════════════════════════════════════════════
-
-    elif text in ["menu_delete", "delete product"] or "product delete" in text.lower():
+    # ══════════════════════════════════════
+    elif text == "delete product":
         async with AsyncSessionLocal() as db:
             store_result = await db.execute(
                 select(Store).where(
@@ -753,7 +592,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             )
             store = store_result.scalar_one_or_none()
             if not store:
-                await send_message(sender, "Koi store nahi mila.")
+                await send_message(sender, "No store found.")
                 return
 
             listings_result = await db.execute(
@@ -765,117 +604,73 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             items = listings_result.scalars().all()
 
         if not items:
-            await send_buttons(
-                sender,
-                "📦 Delete karne ke liye koi product nahi hai.",
-                [{"id": "btn_main_menu", "title": "🏠 Main Menu"}]
-            )
+            await send_message(sender, "You have no listings to delete.")
             return
 
-        # Send list of products to delete
-        rows = [
-            {"id": f"del_{item.id}", "title": item.title, "description": f"PKR {int(item.price)}"}
-            for item in items
-        ]
+        msg = "Kaunsa product delete karna chahte hain?\nNumber reply karein:\n\n"
+        for i, item in enumerate(items, 1):
+            msg += f"{i}. {item.title}\n"
+        msg += "\nWapas jane ke liye *M* likhein."
+
         session = {
             "step":  "confirm_delete",
             "items": [{"id": str(item.id), "title": item.title} for item in items]
         }
         await save_session(sender, session)
-        await send_list(
-            sender,
-            "🗑️ *Product Delete Karen*\n━━━━━━━━━━━━━━━\nKaunsa product delete karna chahte hain?\n\nSelect karne ke baad cancel ke liye *C* likhein.",
-            "🗑️ Product Select Karen",
-            [{"title": "Aap ke Products", "rows": rows[:10]}]
-        )
-        await send_buttons(
-            sender,
-            "Ya wapas jayein:",
-            [
-                {"id": "btn_cancel",    "title": "❌ Cancel"},
-                {"id": "btn_main_menu", "title": "🏠 Main Menu"},
-            ]
-        )
+        await send_message(sender, msg)
 
     elif step == "confirm_delete":
-        # Handle list selection
-        if text.startswith("del_"):
-            product_id = text.replace("del_", "")
-            items = session.get("items", [])
-            selected = next((i for i in items if i["id"] == product_id), None)
-            if not selected:
-                await send_message(sender, "Product nahi mila.")
-                return
-            session["delete_item"] = selected
-            session["step"] = "confirm_delete_yes"
-            await save_session(sender, session)
-            await send_buttons(
-                sender,
-                f"⚠️ *Confirm Delete*\n━━━━━━━━━━━━━━━\nKya aap sure hain?\n\n🗑️ *{selected['title']}*\n\nYeh action wapas nahi ho sakta!",
-                [
-                    {"id": "confirm_yes",   "title": "✅ Haan Delete Karen"},
-                    {"id": "confirm_no",    "title": "❌ Nahi Cancel"},
-                ]
-            )
-        # Handle number fallback
-        else:
-            items = session.get("items", [])
-            try:
-                index = int(text) - 1
-                if index < 0 or index >= len(items):
-                    raise ValueError
-                selected = items[index]
-                session["delete_item"] = selected
-                session["step"] = "confirm_delete_yes"
-                await save_session(sender, session)
-                await send_buttons(
-                    sender,
-                    f"⚠️ *Confirm Delete*\n━━━━━━━━━━━━━━━\nKya aap sure hain?\n\n🗑️ *{selected['title']}*",
-                    [
-                        {"id": "confirm_yes", "title": "✅ Haan Delete Karen"},
-                        {"id": "confirm_no",  "title": "❌ Nahi Cancel"},
-                    ]
-                )
-            except:
-                await send_buttons(
-                    sender,
-                    f"⚠️ Sahi number likhein (1 se {len(items)} tak)",
-                    [{"id": "btn_main_menu", "title": "🏠 Main Menu"}]
-                )
-
-    elif step == "confirm_delete_yes":
-        if text in ["confirm_yes"]:
-            selected = session.get("delete_item")
+        if text.strip().lower() in ["m", "menu"]:
+            await clear_session(sender)
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
-                    select(Listing).where(Listing.id == selected["id"])
+                    select(Store).where(
+                        Store.whatsapp_number == sender,
+                        Store.is_verified == True,
+                        Store.is_active == True
+                    )
                 )
-                listing = result.scalar_one_or_none()
-                if listing:
-                    listing.is_available = False
-                    await db.commit()
-            await clear_session(sender)
-            await send_buttons(
-                sender,
-                f"✅ *{selected['title']}* delete ho gaya!",
-                [
-                    {"id": "menu_delete",   "title": "🗑️ Aur Delete Karen"},
-                    {"id": "btn_main_menu", "title": "🏠 Main Menu"},
-                ]
-            )
-        else:
-            await clear_session(sender)
-            await send_buttons(
-                sender,
-                "❌ Delete cancel ho gaya!",
-                [{"id": "btn_main_menu", "title": "🏠 Main Menu"}]
-            )
+                store = result.scalar_one_or_none()
+            if store:
+                await send_message(sender,
+                    f"🏪 *{store.name}* — Store Menu\n\n"
+                    "Number reply karein:\n\n"
+                    "1️⃣ — Product Add Karen\n"
+                    "2️⃣ — Mere Products Dekhein\n"
+                    "3️⃣ — Price Update Karen\n"
+                    "4️⃣ — Product Delete Karen\n\n"
+                    "Ya seedha command likhein."
+                )
+            return
+        items = session.get("items", [])
+        try:
+            index = int(text) - 1
+            if index < 0 or index >= len(items):
+                raise ValueError
+        except:
+            await send_message(sender, f"1 aur {len(items)} ke darmiyan number likhein.\nWapas jane ke liye *M* likhein.")
+            return
 
-    # ══════════════════════════════════════════════════
+        selected = items[index]
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(Listing).where(Listing.id == selected["id"])
+            )
+            listing = result.scalar_one_or_none()
+            if listing:
+                listing.is_available = False
+                await db.commit()
+
+        await clear_session(sender)
+        await send_message(sender,
+            f"✅ *{selected['title']}* delete ho gaya.\n\n"
+            "Aur options ke liye *M* likhein."
+        )
+
+    # ══════════════════════════════════════
     # UPDATE PRICE
-    # ══════════════════════════════════════════════════
-
-    elif text in ["menu_price", "update price"] or "price update" in text.lower():
+    # ══════════════════════════════════════
+    elif text == "update price":
         async with AsyncSessionLocal() as db:
             store_result = await db.execute(
                 select(Store).where(
@@ -885,7 +680,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             )
             store = store_result.scalar_one_or_none()
             if not store:
-                await send_message(sender, "Koi store nahi mila.")
+                await send_message(sender, "No store found.")
                 return
 
             listings_result = await db.execute(
@@ -897,80 +692,87 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             items = listings_result.scalars().all()
 
         if not items:
-            await send_buttons(
-                sender,
-                "📦 Update karne ke liye koi product nahi hai.",
-                [{"id": "btn_main_menu", "title": "🏠 Main Menu"}]
-            )
+            await send_message(sender, "You have no listings.")
             return
 
-        rows = [
-            {"id": f"price_{item.id}", "title": item.title, "description": f"PKR {int(item.price)}"}
-            for item in items
-        ]
+        msg = "Kis product ka price update karna chahte hain?\nNumber reply karein:\n\n"
+        for i, item in enumerate(items, 1):
+            msg += f"{i}. {item.title} — {item.price}\n"
+        msg += "\nWapas jane ke liye *M* likhein."
+
         session = {
             "step":  "select_product_price",
-            "items": [{"id": str(item.id), "title": item.title, "price": float(item.price)} for item in items]
+            "items": [{"id": str(item.id), "title": item.title} for item in items]
         }
         await save_session(sender, session)
-        await send_list(
-            sender,
-            "✏️ *Price Update Karen*\n━━━━━━━━━━━━━━━\nKis product ka price update karna chahte hain?\n\nSelect karne ke baad cancel ke liye *C* likhein.",
-            "✏️ Product Select Karen",
-            [{"title": "Aap ke Products", "rows": rows[:10]}]
-        )
-        await send_buttons(
-            sender,
-            "Ya wapas jayein:",
-            [
-                {"id": "btn_cancel",    "title": "❌ Cancel"},
-                {"id": "btn_main_menu", "title": "🏠 Main Menu"},
-            ]
-        )
+        await send_message(sender, msg)
 
     elif step == "select_product_price":
-        items = session.get("items", [])
-        selected = None
-
-        if text.startswith("price_"):
-            product_id = text.replace("price_", "")
-            selected = next((i for i in items if i["id"] == product_id), None)
-        else:
-            try:
-                index = int(text) - 1
-                if 0 <= index < len(items):
-                    selected = items[index]
-            except:
-                pass
-
-        if not selected:
-            await send_buttons(
-                sender,
-                f"⚠️ Sahi number likhein (1 se {len(items)} tak)",
-                [{"id": "btn_main_menu", "title": "🏠 Main Menu"}]
-            )
+        if text.strip().lower() in ["m", "menu"]:
+            sessions[sender] = {"step": "idle"}
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(Store).where(
+                        Store.whatsapp_number == sender,
+                        Store.is_verified == True,
+                        Store.is_active == True
+                    )
+                )
+                store = result.scalar_one_or_none()
+            if store:
+                await send_message(sender,
+                    f"🏪 *{store.name}* — Store Menu\n\n"
+                    "Number reply karein:\n\n"
+                    "1️⃣ — Product Add Karen\n"
+                    "2️⃣ — Mere Products Dekhein\n"
+                    "3️⃣ — Price Update Karen\n"
+                    "4️⃣ — Product Delete Karen\n\n"
+                    "Ya seedha command likhein."
+                )
             return
-
-        session["selected_item"] = selected
+        items = session.get("items", [])
+        try:
+            index = int(text) - 1
+            if index < 0 or index >= len(items):
+                raise ValueError
+        except:
+            await send_message(sender, f"1 aur {len(items)} ke darmiyan number likhein.")
+            return
+        session["selected_item"] = items[index]
         session["step"]          = "enter_new_price"
         await save_session(sender, session)
-        await send_cancel_back_buttons(
-            sender,
-            f"✏️ *Price Update Karen*\n━━━━━━━━━━━━━━━\n📦 {selected['title']}\n💰 Purana price: PKR {int(selected['price'])}\n\nNaya price likhein:\n_(Sirf number)_"
+        await send_message(sender,
+            f"*{items[index]['title']}* ka naya price kya hai?"
         )
 
     elif step == "enter_new_price":
+        if text.strip().lower() in ["m", "menu"]:
+            sessions[sender] = {"step": "idle"}
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(Store).where(
+                        Store.whatsapp_number == sender,
+                        Store.is_verified == True,
+                        Store.is_active == True
+                    )
+                )
+                store = result.scalar_one_or_none()
+            if store:
+                await send_message(sender,
+                    f"🏪 *{store.name}* — Store Menu\n\n"
+                    "Number reply karein:\n\n"
+                    "1️⃣ — Product Add Karen\n"
+                    "2️⃣ — Mere Products Dekhein\n"
+                    "3️⃣ — Price Update Karen\n"
+                    "4️⃣ — Product Delete Karen\n\n"
+                    "Ya seedha command likhein."
+                )
+            return
         try:
             new_price = float(text.replace(",", "").replace("rs", "").replace("pkr", "").strip())
-            if new_price <= 0:
-                raise ValueError
         except:
-            await send_cancel_back_buttons(
-                sender,
-                "⚠️ *Galat Input!*\n\nSirf number likhein.\n✅ Misaal: 750\n❌ Nahi: PKR750\n\nMeharbani kar ke dobara naya price likhein:"
-            )
+            await send_message(sender, "Sirf number likhein. Misaal: 750")
             return
-
         selected = session.get("selected_item")
         async with AsyncSessionLocal() as db:
             result = await db.execute(
@@ -980,27 +782,29 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             if listing:
                 listing.price = new_price
                 await db.commit()
-
         await clear_session(sender)
-        await send_buttons(
-            sender,
-            f"✅ *Price Update Ho Gaya!*\n━━━━━━━━━━━━━━━\n📦 {selected['title']}\n💰 Naya price: PKR {int(new_price)}",
-            [
-                {"id": "menu_price",    "title": "✏️ Aur Update Karen"},
-                {"id": "btn_main_menu", "title": "🏠 Main Menu"},
-            ]
+        await send_message(sender,
+            f"✅ *{selected['title']}* ka price *{new_price}* ho gaya.\n\n"
+            "Aur options ke liye *M* likhein."
         )
 
-    # ══════════════════════════════════════════════════
-    # UNKNOWN COMMAND
-    # ══════════════════════════════════════════════════
+    # ══════════════════════════════════════
+    # CANCEL / RESET
+    # ══════════════════════════════════════
+    elif text in ["cancel", "stop", "reset", "exit"]:
+        await clear_session(sender)
+        await send_message(sender,
+            "✅ Cancel ho gaya.\n\n"
+            "Dobara shuru karne ke liye *hi* likhein.\n"
+            "Store manage karne ke liye *M* likhein."
+        )
 
+    # ══════════════════════════════════════
+    # UNKNOWN COMMAND
+    # ══════════════════════════════════════
     else:
-        await send_buttons(
-            sender,
-            "🤔 *Samajh Nahi Aaya!*\n\nMeharbani kar ke buttons use karein.\n\nYa likhein:\n• *M* — Main Menu\n• *hi* — Naya shuru karein",
-            [
-                {"id": "btn_main_menu", "title": "🏠 Main Menu"},
-                {"id": "btn_register",  "title": "🏪 Register Karen"},
-            ]
+        await send_message(sender,
+            "Samajh nahi aaya. 🤔\n\n"
+            "Store menu ke liye *M* likhein.\n"
+            "Naya store register karne ke liye *R* likhein."
         )

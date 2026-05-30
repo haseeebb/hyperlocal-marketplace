@@ -151,7 +151,7 @@ async def send_store_menu(to: str, store_name: str):
     """Send verified seller store management menu"""
     await send_list(
         to,
-        f"🏪 *{store_name}*\n✅ Verified Store\n\nAap kya karna chahte hain?",
+        f"🏪 *{store_name}*\n✅ Verified Store\n\nAap kya karna chahte hain?\n_(Neeche button dabayein)_",
         "📋 Options Dekhein",
         [{
             "title": "Store Management",
@@ -254,14 +254,26 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
 
     if text.strip().lower() in ["cancel", "btn_cancel", "c"] or interactive_id == "btn_cancel":
         await clear_session(sender)
-        await send_buttons(
-            sender,
-            "❌ *Cancel Ho Gaya*\n\nAap ka kaam cancel kar diya gaya.",
-            [
-                {"id": "btn_register",  "title": "🏪 Register Karen"},
-                {"id": "btn_main_menu", "title": "🏠 Main Menu"},
-            ]
-        )
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(Store).where(
+                    Store.whatsapp_number == sender,
+                    Store.is_active == True
+                )
+            )
+            existing = result.scalar_one_or_none()
+
+        if existing and existing.is_verified:
+            await send_store_menu(sender, existing.name)
+        else:
+            await send_buttons(
+                sender,
+                "❌ *Cancel Ho Gaya*",
+                [
+                    {"id": "btn_register",  "title": "🏪 Register Karen"},
+                    {"id": "btn_main_menu", "title": "🏠 Main Menu"},
+                ]
+            )
         return
 
     # ══════════════════════════════════════════════════

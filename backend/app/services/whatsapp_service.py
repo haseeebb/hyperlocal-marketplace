@@ -239,6 +239,7 @@ async def handle_message(sender, text, media_id=None, location=None, interactive
             await send_store_menu(sender, store.name)
         else:
             await send_welcome(sender)
+            await save_session(sender, {"step": "reg_wait"})
         return
 
     # ── GLOBAL: Back ──────────────────────────────────

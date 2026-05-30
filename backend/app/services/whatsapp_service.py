@@ -15,9 +15,10 @@ sessions        = {}
 AREAS = [
     "DHA (Defence)", "Gulberg", "Model Town", "Johar Town", "Township",
     "Garden Town", "Faisal Town", "Cantt", "Bahria Town", "Iqbal Town",
-    "Wapda Town", "Valencia Town", "Askari", "Walled City", "Anarkali",
-    "Mall Road", "Shadman", "Samanabad", "Shahdara", "Raiwind",
-    "Thokar Niaz Baig", "Multan Road", "Ferozepur Road", "Wagah", "Ichhra", "Other"
+    "Wapda Town", "Valencia Town", "Askari", "Walled City / Androon Shehr", "Anarkali",
+    "Mall Road", "Shadman", "Mughalpura", "Samanabad", "Shahdara", "Raiwind",
+    "Thokar Niaz Baig", "Multan Road", "Ferozepur Road", "Wagah",
+    "Harbanspura", "Baghbanpura", "Misri Shah", "Ichhra", "Other"
 ]
 
 # ── Session helpers ───────────────────────────────────

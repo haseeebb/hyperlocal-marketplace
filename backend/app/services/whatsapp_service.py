@@ -573,7 +573,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
     # ADD PRODUCT FLOW
     # ══════════════════════════════════════════════════
 
-    elif text in ["menu_add", "add product"]:
+    elif text in ["menu_add", "add product"] or "product add" in text.lower():
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(Store).where(
@@ -707,7 +707,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
     # VIEW PRODUCTS
     # ══════════════════════════════════════════════════
 
-    elif text in ["menu_view", "my products"]:
+    elif text in ["menu_view", "my products"] or "mere products" in text.lower():
         async with AsyncSessionLocal() as db:
             store_result = await db.execute(
                 select(Store).where(
@@ -756,7 +756,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
     # DELETE PRODUCT
     # ══════════════════════════════════════════════════
 
-    elif text in ["menu_delete", "delete product"]:
+    elif text in ["menu_delete", "delete product"] or "product delete" in text.lower():
         async with AsyncSessionLocal() as db:
             store_result = await db.execute(
                 select(Store).where(
@@ -880,7 +880,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
     # UPDATE PRICE
     # ══════════════════════════════════════════════════
 
-    elif text in ["menu_price", "update price"]:
+    elif text in ["menu_price", "update price"] or "price update" in text.lower():
         async with AsyncSessionLocal() as db:
             store_result = await db.execute(
                 select(Store).where(

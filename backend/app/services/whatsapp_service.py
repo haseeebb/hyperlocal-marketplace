@@ -219,14 +219,12 @@ AREAS = {
 async def send_area_list(to: str):
     """Send area selection list"""
     rows = [{"id": k, "title": v} for k, v in AREAS.items()]
-    # Split into 2 sections (max 10 per section)
     await send_list(
         to,
         "Lahore mein aap ka store kis area mein hai?\nMeharbani kar ke apna area select karein:",
         "📍 Area Select Karen",
         [
-            {"title": "Areas (1-13)", "rows": rows[:13]},
-            {"title": "Areas (14-26)", "rows": rows[13:]},
+            {"title": "Lahore Areas", "rows": rows},
         ]
     )
 
@@ -379,23 +377,16 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
         session["store_name"] = text.strip().title()
         session["step"]       = "reg_category"
         await save_session(sender, session)
-        await send_buttons(
+        await send_list(
             sender,
             f"🏪 *Store Registration*\n━━━━━━━━━━━━━━━\nStep 3/6 — Category\n━━━━━━━━━━━━━━━\n\n✅ Store: *{session['store_name']}*\n\nAap ka store kis qisam ka hai?",
-            [
-                {"id": "cat_products",   "title": "📦 Products"},
-                {"id": "cat_services",   "title": "🔧 Services"},
-                {"id": "cat_restaurant", "title": "🍽️ Restaurant"},
-            ]
-        )
-        # Send hotel as separate message since max 3 buttons
-        await send_buttons(
-            sender,
-            "Ya phir:",
-            [
-                {"id": "cat_hotel",  "title": "🏨 Hotel"},
-                {"id": "btn_cancel", "title": "❌ Cancel"},
-            ]
+            "🏪 Category Select Karen",
+            [{"title": "Categories", "rows": [
+                {"id": "cat_products",   "title": "📦 Products",    "description": "Koi bhi product bechein"},
+                {"id": "cat_services",   "title": "🔧 Services",    "description": "Services provide karein"},
+                {"id": "cat_restaurant", "title": "🍽️ Restaurant",  "description": "Khana bechein"},
+                {"id": "cat_hotel",      "title": "🏨 Hotel",       "description": "Rooms/accommodation"},
+            ]}]
         )
 
     elif step == "reg_category":
@@ -408,22 +399,16 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             "1": "products", "2": "services", "3": "restaurant", "4": "hotel",
         }
         if text not in cats:
-            await send_buttons(
+            await send_list(
                 sender,
-                "⚠️ Meharbani kar ke upar diye gaye buttons mein se ek select karein!",
-                [
+                "⚠️ Meharbani kar ke list mein se category select karein!",
+                "🏪 Category Select Karen",
+                [{"title": "Categories", "rows": [
                     {"id": "cat_products",   "title": "📦 Products"},
                     {"id": "cat_services",   "title": "🔧 Services"},
                     {"id": "cat_restaurant", "title": "🍽️ Restaurant"},
-                ]
-            )
-            await send_buttons(
-                sender,
-                "Ya phir:",
-                [
-                    {"id": "cat_hotel",  "title": "🏨 Hotel"},
-                    {"id": "btn_cancel", "title": "❌ Cancel"},
-                ]
+                    {"id": "cat_hotel",      "title": "🏨 Hotel"},
+                ]}]
             )
             return
         session["category"] = cats[text]
@@ -509,32 +494,21 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
             result = await db.execute(select(User).where(User.phone == sender))
             user = result.scalar_one_or_none()
 
-            from app.services.supabase_auth import create_auth_user
+            from passlib.context import CryptContext
+            pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
             if not user:
-                auth_user = await create_auth_user(
-                    phone=sender,
-                    password=session["password"],
-                    name=session["owner_name"],
-                    role="seller",
-                )
                 user = User(
                     phone=sender,
-                    supabase_user_id=auth_user["id"],
                     name=session["owner_name"],
                     role="seller",
+                    hashed_password=pwd_context.hash(session["password"])
                 )
                 db.add(user)
                 await db.flush()
             else:
                 user.role = "seller"
-                if not user.supabase_user_id:
-                    auth_user = await create_auth_user(
-                        phone=sender,
-                        password=session["password"],
-                        name=user.name or session["owner_name"],
-                        role="seller",
-                    )
-                    user.supabase_user_id = auth_user["id"]
+                user.hashed_password = pwd_context.hash(session["password"])
 
             store = Store(
                 owner_id=user.id,

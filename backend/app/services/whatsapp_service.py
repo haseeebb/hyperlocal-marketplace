@@ -395,9 +395,10 @@ async def handle_message(sender, text, media_id=None, location=None, interactive
                 await db.commit()
             sname = session["store_name"]
             city  = session["city"]
+            pwd   = session["password"]
             await clear_session(sender)
             await send_buttons(sender,
-                f"✅ *Store Submit Ho Gaya!*\n━━━━━━━━━━━━━━━\n🏪 {sname}\n📍 {city}\n\nHamari team 24 ghante mein review karegi! 🎉\n\n🌐 Website Login:\n📱 Phone: {sender}\n🔑 Password: aap ka set kiya hua\n🔗 hyperlocal-marketplace-zeta.vercel.app/login.html",
+                f"✅ *Store Submit Ho Gaya!*\n━━━━━━━━━━━━━━━\n🏪 {sname}\n📍 {city}\n\nHamari team 24 ghante mein review karegi! 🎉\n\n🌐 Website Login Details:\n📱 Phone: {sender}\n🔑 Password: {pwd}\n🔗 hyperlocal-marketplace-zeta.vercel.app/login.html\n\n⚠️ Yeh details mehfooz rakhein!",
                 [{"id":"STATUS_CHECK","title":"📊 Status Check Karen"}]
             )
         except Exception as e:

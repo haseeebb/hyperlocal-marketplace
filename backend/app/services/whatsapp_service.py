@@ -810,9 +810,17 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
         await save_session(sender, session)
         await send_list(
             sender,
-            "🗑️ *Product Delete Karen*\n━━━━━━━━━━━━━━━\nKaunsa product delete karna chahte hain?",
+            "🗑️ *Product Delete Karen*\n━━━━━━━━━━━━━━━\nKaunsa product delete karna chahte hain?\n\nSelect karne ke baad cancel ke liye *C* likhein.",
             "🗑️ Product Select Karen",
             [{"title": "Aap ke Products", "rows": rows[:10]}]
+        )
+        await send_buttons(
+            sender,
+            "Ya wapas jayein:",
+            [
+                {"id": "btn_cancel",    "title": "❌ Cancel"},
+                {"id": "btn_main_menu", "title": "🏠 Main Menu"},
+            ]
         )
 
     elif step == "confirm_delete":
@@ -933,9 +941,17 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
         await save_session(sender, session)
         await send_list(
             sender,
-            "✏️ *Price Update Karen*\n━━━━━━━━━━━━━━━\nKis product ka price update karna chahte hain?",
+            "✏️ *Price Update Karen*\n━━━━━━━━━━━━━━━\nKis product ka price update karna chahte hain?\n\nSelect karne ke baad cancel ke liye *C* likhein.",
             "✏️ Product Select Karen",
             [{"title": "Aap ke Products", "rows": rows[:10]}]
+        )
+        await send_buttons(
+            sender,
+            "Ya wapas jayein:",
+            [
+                {"id": "btn_cancel",    "title": "❌ Cancel"},
+                {"id": "btn_main_menu", "title": "🏠 Main Menu"},
+            ]
         )
 
     elif step == "select_product_price":

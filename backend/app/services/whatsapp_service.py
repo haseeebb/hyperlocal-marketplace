@@ -344,7 +344,7 @@ async def handle_message(
     # ══════════════════════════════════════════════════
     # IDLE / WELCOME
     # ══════════════════════════════════════════════════
-    if step == "idle":
+    if step == "idle" and cmd not in ["MENU_ADD", "MENU_VIEW", "MENU_PRICE", "MENU_DELETE", "1", "2", "3", "4"]:
         # Check if user has a store
         async with AsyncSessionLocal() as db:
             r = await db.execute(select(Store).where(
@@ -582,7 +582,7 @@ async def handle_message(
     # STORE MENU COMMANDS
     # ══════════════════════════════════════════════════
 
-    elif cmd in ["MENU_ADD", "1"] or step == "idle" and cmd == "MENU_ADD":
+    elif cmd in ["MENU_ADD", "1"]:
         async with AsyncSessionLocal() as db:
             r = await db.execute(select(Store).where(
                 Store.whatsapp_number == sender,

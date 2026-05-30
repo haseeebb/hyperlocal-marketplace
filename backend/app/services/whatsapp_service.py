@@ -266,7 +266,7 @@ async def handle_message(sender, text, media_id=None, location=None, interactive
     # STEP-BASED HANDLERS (checked BEFORE menu commands)
     # ══════════════════════════════════════════════════
 
-    elif step == "idle":
+    elif step == "idle" and cmd not in ["MENU_ADD", "MENU_VIEW", "MENU_PRICE", "MENU_DELETE"]:
         async with AsyncSessionLocal() as db:
             r = await db.execute(select(Store).where(
                 Store.whatsapp_number==sender, Store.is_active==True))

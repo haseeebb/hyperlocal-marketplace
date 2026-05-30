@@ -244,6 +244,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
         text = interactive_id
 
     print(f"Message from {sender}: text='{text}', interactive='{interactive_id}', step={step}")
+    print(f"After processing: text='{text}', interactive_id='{interactive_id}', step='{step}'")
 
     # ── GLOBAL RESETS ────────────────────────────────
     if text.strip().lower() in ["m", "menu", "btn_main_menu"] or interactive_id == "btn_main_menu":
@@ -548,7 +549,7 @@ async def handle_message(sender: str, text: str, media_id: str = None, location:
     # MAIN MENU — M / menu
     # ══════════════════════════════════════════════════
 
-    elif step == "idle" or text.strip().lower() in ["m", "menu", "btn_main_menu"]:
+    elif text.strip().lower() in ["m", "menu", "btn_main_menu"]:
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(Store).where(

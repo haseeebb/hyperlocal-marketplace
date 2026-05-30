@@ -35,6 +35,7 @@ async def receive_message(request: Request):
         text = ""
         media_id = None
         location = None
+        interactive_id = None
 
         if msg_type == "text":
             text = message.get("text", {}).get("body", "").strip().lower()
@@ -42,8 +43,15 @@ async def receive_message(request: Request):
             media_id = message.get("image", {}).get("id")
         elif msg_type == "location":
             location = message.get("location")
+        elif msg_type == "interactive":
+            interactive = message.get("interactive", {})
+            interactive_type = interactive.get("type")
+            if interactive_type == "button_reply":
+                interactive_id = interactive.get("button_reply", {}).get("id")
+            elif interactive_type == "list_reply":
+                interactive_id = interactive.get("list_reply", {}).get("id")
 
-        await handle_message(sender, text, media_id, location)
+        await handle_message(sender, text, media_id, location, interactive_id)
 
     except Exception as e:
         print(f"Webhook error: {e}")

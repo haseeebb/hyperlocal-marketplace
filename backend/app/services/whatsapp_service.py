@@ -657,21 +657,19 @@ async def handle_message(
             )
             return
 
-        rows = [
-            {"id": f"PRICE_{item.id}", "title": item.title, "description": f"PKR {int(item.price)}"}
-            for item in items
-        ]
+        msg = "✏️ *Price Update Karen*\n━━━━━━━━━━━━━━━\nKis product ka price update karna chahte hain?\nNumber likhein:\n\n"
+        for i, item in enumerate(items, 1):
+            msg += f"{i}. {item.title} — PKR {int(item.price)}\n"
+
         session = {
             "step": "select_product_price",
             "items": [{"id": str(i.id), "title": i.title, "price": float(i.price)} for i in items]
         }
         await save_session(sender, session)
-        await send_list(sender,
-            "✏️ *Price Update Karen*\n━━━━━━━━━━━━━━━\nKis product ka price update karna chahte hain?",
-            "✏️ Product Chunein",
-            rows
-        )
-        await send_main_cancel(sender, "Ya wapas jayein:")
+        await send_buttons(sender, msg, [
+            {"id": "BTN_MAIN",   "title": "🏠 Main Menu"},
+            {"id": "BTN_CANCEL", "title": "❌ Cancel"},
+        ])
 
     elif cmd in ["MENU_DELETE", "4"]:
         async with AsyncSessionLocal() as db:
@@ -696,21 +694,19 @@ async def handle_message(
             )
             return
 
-        rows = [
-            {"id": f"DEL_{item.id}", "title": item.title, "description": f"PKR {int(item.price)}"}
-            for item in items
-        ]
+        msg = "🗑️ *Product Delete Karen*\n━━━━━━━━━━━━━━━\nKaunsa product delete karna chahte hain?\nNumber likhein:\n\n"
+        for i, item in enumerate(items, 1):
+            msg += f"{i}. {item.title} — PKR {int(item.price)}\n"
+
         session = {
             "step": "confirm_delete",
             "items": [{"id": str(i.id), "title": i.title} for i in items]
         }
         await save_session(sender, session)
-        await send_list(sender,
-            "🗑️ *Product Delete Karen*\n━━━━━━━━━━━━━━━\nKaunsa product delete karna chahte hain?",
-            "🗑️ Product Chunein",
-            rows
-        )
-        await send_main_cancel(sender, "Ya wapas jayein:")
+        await send_buttons(sender, msg, [
+            {"id": "BTN_MAIN",   "title": "🏠 Main Menu"},
+            {"id": "BTN_CANCEL", "title": "❌ Cancel"},
+        ])
 
     # ══════════════════════════════════════════════════
     # ADD PRODUCT STEPS
